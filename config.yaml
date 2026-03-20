@@ -1,0 +1,6 @@
+http_concurrency: 20
+browser_concurrency: 5
+timeout: 30s
+retry_attempts: 3
+recycle_after: 100
+output_format: text

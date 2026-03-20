@@ -1,0 +1,63 @@
+package config
+
+import (
+	"os"
+	"time"
+
+	"gopkg.in/yaml.v3"
+)
+
+type Config struct {
+	HTTPConcurrency    int           `yaml:"http_concurrency"`
+	BrowserConcurrency int           `yaml:"browser_concurrency"`
+	Timeout            time.Duration `yaml:"timeout"`
+	RetryAttempts      int           `yaml:"retry_attempts"`
+	RecycleAfter       int           `yaml:"recycle_after"`
+	OutputFormat       string        `yaml:"output_format"`
+	YouTube            YouTubeConfig `yaml:"youtube"`
+}
+
+// YouTubeConfig holds YouTube-specific extraction settings.
+type YouTubeConfig struct {
+	ExtractTranscripts bool     `yaml:"extract_transcripts"`
+	TranscriptLangs    []string `yaml:"transcript_langs"`
+	DownloadAudio      bool     `yaml:"download_audio"`
+	AudioOutputDir     string   `yaml:"audio_output_dir"`
+	ExportSubtitles    bool     `yaml:"export_subtitles"`
+	SubtitleFormats    []string `yaml:"subtitle_formats"`
+	SubtitleOutputDir  string   `yaml:"subtitle_output_dir"`
+}
+
+func Default() Config {
+	return Config{
+		HTTPConcurrency:    20,
+		BrowserConcurrency: 5,
+		Timeout:            30 * time.Second,
+		RetryAttempts:      3,
+		RecycleAfter:       100,
+		OutputFormat:       "text",
+		YouTube: YouTubeConfig{
+			ExtractTranscripts: true,
+			TranscriptLangs:    nil,
+			DownloadAudio:      false,
+			AudioOutputDir:     "downloads/audio",
+			ExportSubtitles:    false,
+			SubtitleFormats:    []string{"srt"},
+			SubtitleOutputDir:  "downloads/subtitles",
+		},
+	}
+}
+
+// Load reads config.yaml if it exists and overrides defaults.
+func Load(path string) (Config, error) {
+	cfg := Default()
+	f, err := os.Open(path)
+	if os.IsNotExist(err) {
+		return cfg, nil
+	}
+	if err != nil {
+		return cfg, err
+	}
+	defer f.Close()
+	return cfg, yaml.NewDecoder(f).Decode(&cfg)
+}
