@@ -149,16 +149,15 @@ The `base` model is the default: it downloads in seconds, transcribes at 16x rea
 - **Negative:** Adds ~200 MB to Docker image (CTranslate2 + dependencies). CPU transcription is slow for long audio. Model files must be downloaded on first use or pre-populated in the volume.
 - **Risks:** faster-whisper CLI interface could change between versions. Mitigation: pin the version in requirements/Dockerfile and test against it.
 
-## Files to Create/Modify
+## Implementation
 
-**New files:**
-- `internal/transcriber/transcriber.go`
-- `internal/transcriber/whisper.go`
+Implemented. All files exist as designed:
+
+- `internal/transcriber/transcriber.go` — `Transcriber` interface, `Options`, `Result` types
+- `internal/transcriber/whisper.go` — `WhisperTranscriber`, `CheckWhisper()`
 - `internal/transcriber/whisper_test.go`
-
-**Modified files:**
-- `internal/config/config.go` — add `TranscriberConfig`, add `TranscribeAudio` to `YouTubeConfig`
-- `internal/store/youtube.go` — add `TranscriptFromAudio` field
-- `internal/scraper/youtube.go` — wire transcription after audio download
-- `main.go` — add `--youtube-transcribe` CLI flag
-- `config.yaml` — add `transcriber` section
+- `internal/config/config.go` — `TranscriberConfig` and `TranscribeAudio` in `YouTubeConfig`
+- `internal/store/youtube.go` — `TranscriptFromAudio string` field
+- `internal/scraper/youtube.go` — transcription wired after audio download, used as `Result.Text` fallback
+- `main.go` — `--youtube-transcribe` flag
+- `config.yaml` — `transcriber` section

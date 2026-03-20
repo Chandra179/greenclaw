@@ -94,9 +94,6 @@ Tini is used as PID 1 to properly reap zombie processes. This is necessary becau
 - **Negative:** ~800 MB image size (Chromium is the largest contributor). Users without Docker need the existing manual setup path. CPU-only whisper will be slow for long audio files.
 - **Risks:** Chromium inside Docker can be flaky with certain seccomp profiles — may need `--cap-add=SYS_ADMIN` or `--security-opt seccomp=unconfined` for some hosts.
 
-## Files to Create
+## Implementation
 
-- `Dockerfile`
-- `docker-compose.yaml`
-- `.dockerignore`
-- `Makefile` additions: `docker-build`, `docker-run` targets
+Implemented in: `Dockerfile`, `docker-compose.yaml`, `.dockerignore`, `Makefile` (`docker-build`, `docker-run` targets).
