@@ -44,10 +44,6 @@ func (c *Client) GetVideoMetadata(ctx context.Context, videoID string) (*store.Y
 		data.UploadDate = video.PublishDate.Format("2006-01-02")
 	}
 
-	if len(video.Thumbnails) > 0 {
-		data.Thumbnail = video.Thumbnails[len(video.Thumbnails)-1].URL
-	}
-
 	// Collect caption track metadata
 	for _, cap := range video.CaptionTracks {
 		data.Captions = append(data.Captions, store.CaptionTrack{

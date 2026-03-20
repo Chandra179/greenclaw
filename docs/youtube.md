@@ -46,7 +46,6 @@ Fetches via `youtube.Client.GetVideoMetadata`:
 - Video ID, title, description
 - Duration, view count, upload date
 - Channel name and ID
-- Thumbnail URL (highest resolution available)
 - Available caption tracks (language, language code, auto-generated flag)
 
 ### Transcript Extraction
@@ -73,8 +72,7 @@ Fetches YouTube's timed text XML format and converts to plain text.
 When YouTube captions are unavailable, greenclaw transcribes downloaded audio using [faster-whisper](https://github.com/SYSTRAN/faster-whisper). Requires `faster-whisper` in PATH and an audio file to have been downloaded first.
 
 - Runs only when `transcribe_audio: true` and `download_audio: true`
-- YouTube captions take priority; `TranscriptFromAudio` is the fallback
-- Stored separately in `store.YouTubeData`: `Captions[]` vs `TranscriptFromAudio`
+- YouTube captions take priority; whisper transcription is the fallback for `Result.Text`
 - Default model: `base` (74 MB, ~16× realtime on a 4-core CPU)
 
 See [ADR 002](adr/002-audio-transcription.md) for engine selection rationale.

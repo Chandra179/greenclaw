@@ -4,7 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -26,10 +29,19 @@ func (w *WhisperTranscriber) Transcribe(ctx context.Context, audioPath string, o
 		model = "base"
 	}
 
+	// Use a temp directory for JSON output — faster-whisper writes the JSON
+	// to a file, while stdout only contains timestamped progress lines.
+	tmpDir, err := os.MkdirTemp("", "whisper-*")
+	if err != nil {
+		return nil, fmt.Errorf("creating temp dir: %w", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
 	args := []string{
 		audioPath,
 		"--model", model,
 		"--output_format", "json",
+		"--output_dir", tmpDir,
 	}
 
 	if opts.ModelDir != "" {
@@ -46,15 +58,21 @@ func (w *WhisperTranscriber) Transcribe(ctx context.Context, audioPath string, o
 		args = append(args, "--task", "translate")
 	}
 
-	args = append(args, "--output_dir", "-")
-
 	cmd := exec.CommandContext(ctx, "faster-whisper", args...)
-	out, err := cmd.Output()
-	if err != nil {
+	if err := cmd.Run(); err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			return nil, fmt.Errorf("faster-whisper failed: %w\n%s", err, exitErr.Stderr)
 		}
 		return nil, fmt.Errorf("faster-whisper failed: %w", err)
+	}
+
+	// faster-whisper writes <basename>.json in the output directory
+	base := strings.TrimSuffix(filepath.Base(audioPath), filepath.Ext(audioPath))
+	jsonPath := filepath.Join(tmpDir, base+".json")
+
+	out, err := os.ReadFile(jsonPath)
+	if err != nil {
+		return nil, fmt.Errorf("reading whisper JSON output: %w", err)
 	}
 
 	return parseWhisperOutput(out)
@@ -74,11 +92,28 @@ type whisperSegment struct {
 	Text  string  `json:"text"`
 }
 
+// timestampRe matches whisper timestamp lines like "[00:00.000 --> 00:01.600]"
+var timestampRe = regexp.MustCompile(`\[\d{2}:\d{2}\.\d{3}\s*-->\s*\d{2}:\d{2}\.\d{3}\]\s*`)
+
+// stripTimestamps removes VTT-style timestamp prefixes from whisper plain text output.
+func stripTimestamps(s string) string {
+	lines := strings.Split(s, "\n")
+	var cleaned []string
+	for _, line := range lines {
+		line = timestampRe.ReplaceAllString(line, "")
+		line = strings.TrimSpace(line)
+		if line != "" {
+			cleaned = append(cleaned, line)
+		}
+	}
+	return strings.Join(cleaned, " ")
+}
+
 func parseWhisperOutput(data []byte) (*Result, error) {
 	var wj whisperJSON
 	if err := json.Unmarshal(data, &wj); err != nil {
-		// Fallback: treat output as plain text
-		text := strings.TrimSpace(string(data))
+		// Fallback: treat output as plain text, stripping any timestamps
+		text := stripTimestamps(string(data))
 		if text == "" {
 			return nil, fmt.Errorf("faster-whisper returned empty output")
 		}

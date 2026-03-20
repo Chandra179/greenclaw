@@ -74,7 +74,6 @@ if cfg.YouTube.TranscribeAudio && ytData.AudioPath != "" {
     → CheckWhisper()
     → NewWhisperTranscriber(cfg.Transcriber.ModelDir)
     → Transcribe(ctx, audioPath, opts)
-    → Store result in ytData.TranscriptFromAudio
     → Use as Result.Text fallback when no captions exist
 }
 ```
@@ -99,9 +98,7 @@ New CLI flag: `--youtube-transcribe`
 
 ### Store addition
 
-New field in `store.YouTubeData`: `TranscriptFromAudio string`
-
-This is kept separate from `Captions` to distinguish YouTube-provided captions from locally-generated transcriptions.
+Whisper transcription text is used as a fallback for `Result.Text` when no YouTube captions are available. It is not stored separately in `YouTubeData`.
 
 ## Alternatives Considered
 
@@ -157,7 +154,6 @@ Implemented. All files exist as designed:
 - `internal/transcriber/whisper.go` — `WhisperTranscriber`, `CheckWhisper()`
 - `internal/transcriber/whisper_test.go`
 - `internal/config/config.go` — `TranscriberConfig` and `TranscribeAudio` in `YouTubeConfig`
-- `internal/store/youtube.go` — `TranscriptFromAudio string` field
 - `internal/scraper/youtube.go` — transcription wired after audio download, used as `Result.Text` fallback
 - `main.go` — `--youtube-transcribe` flag
 - `config.yaml` — `transcriber` section

@@ -9,10 +9,9 @@ A detect-first, escalate-later web scraper written in Go. It attempts the lighte
 **Run with Docker:**
 
 ```bash
-docker compose up
 curl -X POST http://localhost:8080/extract \
   -H 'Content-Type: application/json' \
-  -d '{"url": "https://example.com"}'
+  -d '{"url": "https://www.youtube.com/watch?v=bqXvzJclaAg"}'
 ```
 
 **Run locally:**
