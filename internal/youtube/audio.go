@@ -3,70 +3,73 @@ package youtube
 import (
 	"context"
 	"fmt"
-	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
 	ytlib "github.com/kkdai/youtube/v2"
 )
 
-// DownloadAudio selects the best audio-only stream, downloads it to outputDir,
-// and returns the file path. Prefers opus/webm, falls back to m4a/mp4.
+// DownloadAudio downloads the audio track of a YouTube video using yt-dlp.
+// When ffmpeg is available, it extracts and converts to opus. Otherwise it
+// downloads the best audio-only stream in its native format (typically webm).
+// The yt-dlp binary must be installed and available in PATH.
 func (c *Client) DownloadAudio(ctx context.Context, video *ytlib.Video, outputDir string) (string, error) {
-	formats := video.Formats.Type("audio")
-	if len(formats) == 0 {
-		return "", fmt.Errorf("no audio-only streams available for video %s", video.ID)
-	}
-
-	// Prefer opus/webm, then m4a
-	var selected *ytlib.Format
-	for i := range formats {
-		f := &formats[i]
-		if strings.Contains(f.MimeType, "opus") || strings.Contains(f.MimeType, "webm") {
-			if selected == nil || f.Bitrate > selected.Bitrate {
-				selected = f
-			}
-		}
-	}
-	if selected == nil {
-		// Fallback: pick highest bitrate audio
-		best := &formats[0]
-		for i := 1; i < len(formats); i++ {
-			if formats[i].Bitrate > best.Bitrate {
-				best = &formats[i]
-			}
-		}
-		selected = best
-	}
-
-	stream, _, err := c.yt.GetStreamContext(ctx, video, selected)
-	if err != nil {
-		return "", fmt.Errorf("getting audio stream: %w", err)
-	}
-	defer stream.Close()
-
-	ext := "webm"
-	if strings.Contains(selected.MimeType, "mp4") || strings.Contains(selected.MimeType, "m4a") {
-		ext = "m4a"
-	}
-
 	if err := os.MkdirAll(outputDir, 0o755); err != nil {
 		return "", fmt.Errorf("creating output dir: %w", err)
 	}
 
-	filename := fmt.Sprintf("%s.%s", video.ID, ext)
-	dest := filepath.Join(outputDir, filename)
+	outTmpl := filepath.Join(outputDir, video.ID+".%(ext)s")
+	videoURL := "https://www.youtube.com/watch?v=" + video.ID
 
-	f, err := os.Create(dest)
+	args := []string{"--no-playlist", "-f", "bestaudio", "--no-overwrites", "-o", outTmpl}
+
+	// Extract and convert to opus when ffmpeg is available.
+	if _, err := exec.LookPath("ffmpeg"); err == nil {
+		args = append(args, "-x", "--audio-format", "opus")
+	}
+
+	args = append(args, "--", videoURL)
+
+	cmd := exec.CommandContext(ctx, "yt-dlp", args...)
+	cmd.Stderr = os.Stderr
+	if out, err := cmd.Output(); err != nil {
+		return "", fmt.Errorf("yt-dlp failed: %w\n%s", err, out)
+	}
+
+	dest, err := findDownloadedAudio(outputDir, video.ID)
 	if err != nil {
-		return "", fmt.Errorf("creating audio file: %w", err)
+		return "", err
 	}
-	defer f.Close()
-
-	if _, err := io.Copy(f, stream); err != nil {
-		return "", fmt.Errorf("writing audio file: %w", err)
-	}
-
 	return dest, nil
+}
+
+// findDownloadedAudio locates the audio file written by yt-dlp.
+func findDownloadedAudio(dir, videoID string) (string, error) {
+	for _, ext := range []string{".opus", ".webm", ".m4a", ".ogg", ".mp3"} {
+		p := filepath.Join(dir, videoID+ext)
+		if _, err := os.Stat(p); err == nil {
+			return p, nil
+		}
+	}
+	// Fallback: glob for any file matching the video ID
+	matches, _ := filepath.Glob(filepath.Join(dir, videoID+".*"))
+	for _, m := range matches {
+		lower := strings.ToLower(m)
+		if strings.HasSuffix(lower, ".part") || strings.HasSuffix(lower, ".json") {
+			continue
+		}
+		return m, nil
+	}
+	return "", fmt.Errorf("audio file not found after yt-dlp completed for %s", videoID)
+}
+
+// CheckYTDLP returns an error if yt-dlp is not installed or not found in PATH.
+func CheckYTDLP() error {
+	_, err := exec.LookPath("yt-dlp")
+	if err != nil {
+		return fmt.Errorf("yt-dlp not found in PATH: install it via 'pip install yt-dlp' or 'brew install yt-dlp'")
+	}
+	return nil
 }

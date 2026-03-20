@@ -1,0 +1,44 @@
+# Binaries
+bin/
+out/
+dist/
+temp
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Dependencies
+vendor/
+venv/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Git
+.git/
+.gitignore
+
+# Docs
+docs/
+*.md
+!README.md
+
+# Test and coverage
+*_test.go
+*.out
+*.prof
+cp.out
+coverage.txt
+
+# Environment and secrets
+.env
+.envrc
+*.local
+
+# Downloads (mounted as volume)
+downloads/

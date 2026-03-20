@@ -17,9 +17,10 @@ type YouTubeData struct {
 	Thumbnail     string            `json:"thumbnail,omitempty"`
 	Tags          []string          `json:"tags,omitempty"`
 	Captions      []CaptionTrack    `json:"captions,omitempty"`
-	AudioPath     string            `json:"audio_path,omitempty"`
-	SubtitlePaths map[string]string `json:"subtitle_paths,omitempty"`
-	PlaylistItems []PlaylistItem    `json:"playlist_items,omitempty"`
+	AudioPath          string            `json:"audio_path,omitempty"`
+	TranscriptFromAudio string           `json:"transcript_from_audio,omitempty"`
+	SubtitlePaths      map[string]string `json:"subtitle_paths,omitempty"`
+	PlaylistItems      []PlaylistItem    `json:"playlist_items,omitempty"`
 }
 
 // CaptionTrack represents a single caption/subtitle track.

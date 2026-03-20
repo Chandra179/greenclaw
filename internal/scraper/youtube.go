@@ -8,6 +8,7 @@ import (
 
 	"greenclaw/internal/router"
 	"greenclaw/internal/store"
+	"greenclaw/internal/transcriber"
 	"greenclaw/internal/youtube"
 )
 
@@ -84,14 +85,43 @@ func (s *Scraper) fetchYouTubeVideo(ctx context.Context, ytClient *youtube.Clien
 		}
 	}
 
-	// Download audio if configured
+	// Download audio if configured (requires yt-dlp)
 	if s.cfg.YouTube.DownloadAudio {
+		if err := youtube.CheckYTDLP(); err != nil {
+			log.Printf("[youtube] %v", err)
+			return result, nil
+		}
 		audioPath, err := ytClient.DownloadAudio(ctx, video, s.cfg.YouTube.AudioOutputDir)
 		if err != nil {
 			log.Printf("[youtube] audio download failed for %s: %v", videoID, err)
 		} else {
 			ytData.AudioPath = audioPath
 			result.FilePath = audioPath
+		}
+	}
+
+	// Transcribe audio if configured and audio was downloaded
+	if s.cfg.YouTube.TranscribeAudio && ytData.AudioPath != "" {
+		if err := transcriber.CheckWhisper(); err != nil {
+			log.Printf("[youtube] %v", err)
+		} else {
+			wt := transcriber.NewWhisperTranscriber(s.cfg.Transcriber.ModelDir)
+			opts := transcriber.Options{
+				Model:    s.cfg.Transcriber.Model,
+				ModelDir: s.cfg.Transcriber.ModelDir,
+				Language: s.cfg.Transcriber.Language,
+				Task:     "transcribe",
+			}
+			tr, err := wt.Transcribe(ctx, ytData.AudioPath, opts)
+			if err != nil {
+				log.Printf("[youtube] transcription failed for %s: %v", videoID, err)
+			} else {
+				ytData.TranscriptFromAudio = tr.Text
+				// Use as fallback when no captions exist
+				if result.Text == "" {
+					result.Text = tr.Text
+				}
+			}
 		}
 	}
 

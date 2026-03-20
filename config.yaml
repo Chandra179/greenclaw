@@ -1,6 +1,21 @@
+port: 8080
 http_concurrency: 20
 browser_concurrency: 5
 timeout: 30s
 retry_attempts: 3
 recycle_after: 100
-output_format: text
+
+youtube:
+  extract_transcripts: true
+  transcript_langs: []
+  download_audio: true
+  audio_output_dir: downloads/audio
+  export_subtitles: false
+  subtitle_formats: [srt]
+  subtitle_output_dir: downloads/subtitles
+  transcribe_audio: true
+
+transcriber:
+  model: base
+  model_dir: /models/whisper
+  language: ""

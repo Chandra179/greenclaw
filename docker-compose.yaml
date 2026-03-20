@@ -1,0 +1,11 @@
+services:
+  greenclaw:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./downloads:/app/downloads
+      - whisper-models:/models/whisper
+
+volumes:
+  whisper-models:

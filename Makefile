@@ -1,6 +1,6 @@
-.PHONY: build test run run-file run-json clean
+.PHONY: build test clean docker-build docker-run
 
-BIN := temp
+BIN := greenclaw
 
 build:
 	go build -o $(BIN) .
@@ -8,17 +8,11 @@ build:
 test:
 	go test ./...
 
-# Usage: make run URL=https://example.com
-run: build
-	./$(BIN) $(URL)
-
-# Usage: make run-file FILE=urls.txt
-run-file: build
-	./$(BIN) --urls-file $(FILE)
-
-# Usage: make run-json URL=https://example.com
-run-json: build
-	./$(BIN) --output json $(URL)
-
 clean:
 	rm -f $(BIN)
+
+docker-build:
+	docker compose build
+
+docker-run:
+	docker compose up

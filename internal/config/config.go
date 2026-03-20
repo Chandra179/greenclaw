@@ -8,13 +8,14 @@ import (
 )
 
 type Config struct {
-	HTTPConcurrency    int           `yaml:"http_concurrency"`
-	BrowserConcurrency int           `yaml:"browser_concurrency"`
-	Timeout            time.Duration `yaml:"timeout"`
-	RetryAttempts      int           `yaml:"retry_attempts"`
-	RecycleAfter       int           `yaml:"recycle_after"`
-	OutputFormat       string        `yaml:"output_format"`
-	YouTube            YouTubeConfig `yaml:"youtube"`
+	Port               int              `yaml:"port"`
+	HTTPConcurrency    int              `yaml:"http_concurrency"`
+	BrowserConcurrency int              `yaml:"browser_concurrency"`
+	Timeout            time.Duration    `yaml:"timeout"`
+	RetryAttempts      int              `yaml:"retry_attempts"`
+	RecycleAfter       int              `yaml:"recycle_after"`
+	YouTube            YouTubeConfig    `yaml:"youtube"`
+	Transcriber        TranscriberConfig `yaml:"transcriber"`
 }
 
 // YouTubeConfig holds YouTube-specific extraction settings.
@@ -26,16 +27,24 @@ type YouTubeConfig struct {
 	ExportSubtitles    bool     `yaml:"export_subtitles"`
 	SubtitleFormats    []string `yaml:"subtitle_formats"`
 	SubtitleOutputDir  string   `yaml:"subtitle_output_dir"`
+	TranscribeAudio    bool     `yaml:"transcribe_audio"`
+}
+
+// TranscriberConfig holds speech-to-text transcription settings.
+type TranscriberConfig struct {
+	Model    string `yaml:"model"`
+	ModelDir string `yaml:"model_dir"`
+	Language string `yaml:"language"`
 }
 
 func Default() Config {
 	return Config{
+		Port:               8080,
 		HTTPConcurrency:    20,
 		BrowserConcurrency: 5,
 		Timeout:            30 * time.Second,
 		RetryAttempts:      3,
 		RecycleAfter:       100,
-		OutputFormat:       "text",
 		YouTube: YouTubeConfig{
 			ExtractTranscripts: true,
 			TranscriptLangs:    nil,
@@ -44,6 +53,12 @@ func Default() Config {
 			ExportSubtitles:    false,
 			SubtitleFormats:    []string{"srt"},
 			SubtitleOutputDir:  "downloads/subtitles",
+			TranscribeAudio:    false,
+		},
+		Transcriber: TranscriberConfig{
+			Model:    "base",
+			ModelDir: "/models/whisper",
+			Language: "",
 		},
 	}
 }
