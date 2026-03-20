@@ -1,0 +1,37 @@
+# --- Binaries and Executables ---
+# If you name your output file specifically, add it here
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+# Common naming convention for Go builds
+bin/
+out/
+dist/
+
+# --- Dependency Management ---
+# Most teams check in go.mod and go.sum. 
+# Vendor is optional; only ignore if you DON'T want to check in dependencies.
+# vendor/
+
+# --- Tooling and Testing ---
+# Coverage reports
+*.out
+*.prof
+cp.out
+coverage.txt
+
+# --- IDEs and Editors ---
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# --- Environment and Secrets ---
+.env
+.envrc
+*.local
+vendor/
+temp
