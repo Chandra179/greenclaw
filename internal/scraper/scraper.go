@@ -13,6 +13,7 @@ import (
 	"greenclaw/internal/fetcher"
 	"greenclaw/internal/router"
 	"greenclaw/internal/store"
+	"greenclaw/internal/youtube"
 )
 
 // ResultStore abstracts result storage for testability.
@@ -31,12 +32,13 @@ type BrowserFetcher interface {
 
 // Scraper orchestrates URL processing with concurrency control.
 type Scraper struct {
-	cfg         config.Config
-	client      *http.Client
-	store       ResultStore
-	browserPool BrowserFetcher
-	httpSem     chan struct{}
-	browserSem  chan struct{}
+	cfg           config.Config
+	client        *http.Client
+	store         ResultStore
+	browserPool   BrowserFetcher
+	httpSem       chan struct{}
+	browserSem    chan struct{}
+	ytPipelineCfg youtube.PipelineConfig
 }
 
 // New creates a Scraper with the given configuration.
@@ -50,6 +52,19 @@ func New(cfg config.Config) *Scraper {
 		browserPool: browser.NewPool(cfg.RecycleAfter),
 		httpSem:     make(chan struct{}, cfg.HTTPConcurrency),
 		browserSem:  make(chan struct{}, cfg.BrowserConcurrency),
+		ytPipelineCfg: youtube.PipelineConfig{
+			ExtractTranscripts: cfg.YouTube.ExtractTranscripts,
+			TranscriptLangs:    cfg.YouTube.TranscriptLangs,
+			DownloadAudio:      cfg.YouTube.DownloadAudio,
+			AudioOutputDir:     cfg.YouTube.AudioOutputDir,
+			ExportSubtitles:    cfg.YouTube.ExportSubtitles,
+			SubtitleFormats:    cfg.YouTube.SubtitleFormats,
+			SubtitleOutputDir:  cfg.YouTube.SubtitleOutputDir,
+			TranscribeAudio:    cfg.YouTube.TranscribeAudio,
+			TranscriberModel:    cfg.Transcriber.Model,
+			TranscriberModelDir: cfg.Transcriber.ModelDir,
+			TranscriberLanguage: cfg.Transcriber.Language,
+		},
 	}
 }
 
@@ -123,7 +138,8 @@ func (s *Scraper) fetchURL(ctx context.Context, url string) (*store.Result, erro
 	// Short-circuit YouTube URLs — no HEAD request needed
 	if ytType, id, ok := router.IsYouTube(url); ok {
 		log.Printf("[router] %s → youtube (%d, %s)", url, ytType, id)
-		return s.fetchYouTube(ctx, url, ytType, id)
+		pipeline := youtube.NewPipeline(youtube.NewClient(s.client), s.ytPipelineCfg)
+		return pipeline.Process(ctx, url, ytType, id)
 	}
 
 	ct, err := router.Classify(ctx, s.client, url)

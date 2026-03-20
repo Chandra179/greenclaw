@@ -11,7 +11,7 @@ A detect-first, escalate-later web scraper written in Go. It attempts the lighte
 ```bash
 curl -X POST http://localhost:8080/extract \
   -H 'Content-Type: application/json' \
-  -d '{"url": "https://www.youtube.com/watch?v=bqXvzJclaAg"}'
+  -d '{"url": "https://www.youtube.com/watch?v=ApG9vjbHDCk"}'
 ```
 
 **Run locally:**
