@@ -45,7 +45,7 @@ Incoming URL
 | `internal/fetcher` | Stage 1 HTTP fetching. goquery for HTML, raw unmarshal for JSON/XML, `io.Copy` for binaries. Returns `ErrNeedsEscalation` when blocked or JS-required. |
 | `internal/browser` | go-rod browser pool with stealth plugin. Recycles the browser every `RecycleAfter` pages (default 100). Blocks images, fonts, CSS, and ad domains via request interception. |
 | `internal/youtube` | YouTube metadata, transcripts, audio download, subtitle export. |
-| `internal/transcriber` | faster-whisper subprocess wrapper for speech-to-text transcription. |
+| `internal/transcriber` | HTTP client for the whisper-service. Streams audio files via multipart POST and returns transcription results. |
 | `internal/scraper` | Orchestrates concurrency (two semaphores: `httpSem`, `browserSem`), retry with exponential backoff, and context cancellation. |
 | `internal/store` | Thread-safe in-memory result store. `Result` is the universal output type. |
 | `internal/config` | `Config` struct and defaults. Loaded from `config.yaml`. |
@@ -136,9 +136,8 @@ greenclaw uses Blink (via Chromium) as the rendering engine. Plain headless mode
 | Stealth patches | `go-rod/stealth` |
 | YouTube extraction | `kkdai/youtube/v2` |
 | Audio download | `yt-dlp` (external binary) |
-| Speech-to-text | `faster-whisper` (external binary, optional) |
+| Speech-to-text | `whisper-service` (separate Python/FastAPI HTTP service, GPU-capable) |
 | Docker init | Tini |
 | Config | `gopkg.in/yaml.v3` |
 | Binary streams | `io.Copy` |
 
-See [dependencies.md](dependencies.md) for rationale behind each dependency choice.

@@ -23,10 +23,9 @@ URL → router.IsYouTube
   │
   ├── Video
   │     ├── GetVideoMetadata (title, duration, views, channel, captions)
-  │     ├── GetAllTranscripts / GetTranscript (if extract_transcripts enabled)
+  │     ├── GetTranscript (if extract_transcripts enabled)
   │     ├── DownloadAudio via yt-dlp (if download_audio enabled)
   │     │     └── Transcribe via faster-whisper (if transcribe_audio enabled)
-  │     └── ExportSubtitles (if export_subtitles enabled)
   │
   ├── Playlist
   │     └── GetPlaylistItems (video IDs, titles, indices)
@@ -68,11 +67,12 @@ Fetches YouTube's timed text XML format and converts to plain text.
 
 ### Audio Transcription
 
-When YouTube captions are unavailable, greenclaw transcribes downloaded audio using [faster-whisper](https://github.com/SYSTRAN/faster-whisper). Requires `faster-whisper` in PATH and an audio file to have been downloaded first.
+When YouTube captions are unavailable, greenclaw transcribes downloaded audio by sending it to the **whisper-service** — a separate FastAPI HTTP service wrapping [faster-whisper](https://github.com/SYSTRAN/faster-whisper). The service runs outside the Go container to allow GPU access.
 
 - Runs only when `transcribe_audio: true` and `download_audio: true`
 - YouTube captions take priority; whisper transcription is the fallback for `Result.Text`
-- Default model: `base` (74 MB, ~16× realtime on a 4-core CPU)
+- Requires `transcriber.endpoint` in config pointing to a running whisper-service instance (e.g. `http://host.docker.internal:9000`)
+- The service defaults to the `medium` model on CUDA; model and device are configured via environment variables
 
 See [ADR 002](adr/002-audio-transcription.md) for engine selection rationale.
 
@@ -83,26 +83,3 @@ See [ADR 002](adr/002-audio-transcription.md) for engine selection rationale.
 ### Channel Support
 
 Minimal — captures channel ID or handle. Does not resolve the uploads playlist.
-
----
-
-## Configuration
-
-YouTube settings live under the `youtube` key in `config.yaml`:
-
-```yaml
-youtube:
-  extract_transcripts: true         # Fetch captions (default: true)
-  transcript_langs: [en, es]        # Filter languages (default: all)
-  download_audio: false             # Download audio files (default: false)
-  audio_output_dir: downloads/audio
-  transcribe_audio: false           # Transcribe audio when no captions (default: false)
-  export_subtitles: false           # Export subtitle files (default: false)
-  subtitle_formats: [srt]           # Formats: srt, vtt, ttml
-  subtitle_output_dir: downloads/subtitles
-
-transcriber:
-  endpoint: http://host.docker.internal:9000
-  timeout: 5m
-  language: "en"
-```
