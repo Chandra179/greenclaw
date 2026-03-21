@@ -16,6 +16,6 @@ youtube:
   transcribe_audio: true
 
 transcriber:
-  model: base
-  model_dir: /models/whisper
-  language: ""
+  endpoint: http://host.docker.internal:9000
+  timeout: 5m
+  language: "en"

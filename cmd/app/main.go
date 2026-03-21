@@ -11,7 +11,7 @@ import (
 	"syscall"
 
 	"greenclaw/internal/config"
-	"greenclaw/internal/scraper"
+	"greenclaw/scraper"
 )
 
 type extractRequest struct {

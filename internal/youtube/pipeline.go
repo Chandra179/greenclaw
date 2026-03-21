@@ -25,22 +25,18 @@ type PipelineConfig struct {
 	SubtitleFormats    []string
 	SubtitleOutputDir  string
 	TranscribeAudio    bool
-
-	// Transcriber settings
-	TranscriberModel    string
-	TranscriberModelDir string
-	TranscriberLanguage string
 }
 
 // Pipeline orchestrates YouTube extraction as a multi-stage pipeline.
 type Pipeline struct {
-	client *Client
-	cfg    PipelineConfig
+	client      *Client
+	cfg         PipelineConfig
+	transcriber transcriber.Client // nil when transcription is disabled
 }
 
-// NewPipeline creates a Pipeline with the given client and config.
-func NewPipeline(client *Client, cfg PipelineConfig) *Pipeline {
-	return &Pipeline{client: client, cfg: cfg}
+// NewPipeline creates a Pipeline with the given client, config, and optional transcriber.
+func NewPipeline(client *Client, cfg PipelineConfig, t transcriber.Client) *Pipeline {
+	return &Pipeline{client: client, cfg: cfg, transcriber: t}
 }
 
 // Process handles a YouTube URL based on its type (video, playlist, channel).
@@ -88,13 +84,6 @@ func (p *Pipeline) processVideo(ctx context.Context, url, videoID string) (*stor
 		})
 	}
 
-	if p.cfg.ExportSubtitles {
-		g.Go(func() error {
-			subPaths = p.exportSubtitles(gctx, video, videoID)
-			return nil
-		})
-	}
-
 	if p.cfg.DownloadAudio {
 		g.Go(func() error {
 			audioPath = p.downloadAudio(gctx, video, videoID)
@@ -137,18 +126,6 @@ func (p *Pipeline) processVideo(ctx context.Context, url, videoID string) (*stor
 
 func (p *Pipeline) fetchTranscripts(ctx context.Context, video *ytlib.Video, videoID string) ([]store.CaptionTrack, string) {
 	langs := p.cfg.TranscriptLangs
-	if len(langs) == 0 {
-		tracks, err := p.client.GetAllTranscripts(ctx, video)
-		if err != nil {
-			log.Printf("[youtube] transcript fetch failed for %s: %v", videoID, err)
-			return nil, ""
-		}
-		var firstText string
-		if len(tracks) > 0 {
-			firstText = tracks[0].Text
-		}
-		return tracks, firstText
-	}
 
 	var tracks []store.CaptionTrack
 	var firstText string
@@ -166,33 +143,6 @@ func (p *Pipeline) fetchTranscripts(ctx context.Context, video *ytlib.Video, vid
 	return tracks, firstText
 }
 
-func (p *Pipeline) exportSubtitles(ctx context.Context, video *ytlib.Video, videoID string) map[string]string {
-	subPaths := make(map[string]string)
-	langs := p.cfg.TranscriptLangs
-	if len(langs) == 0 {
-		for _, cap := range video.CaptionTracks {
-			langs = append(langs, cap.LanguageCode)
-		}
-	}
-	for _, lang := range langs {
-		for _, fmtStr := range p.cfg.SubtitleFormats {
-			subFmt, err := ParseSubtitleFormat(fmtStr)
-			if err != nil {
-				log.Printf("[youtube] unknown subtitle format %s: %v", fmtStr, err)
-				continue
-			}
-			path, err := p.client.ExportSubtitles(ctx, video, lang, subFmt, p.cfg.SubtitleOutputDir)
-			if err != nil {
-				log.Printf("[youtube] subtitle export %s/%s failed for %s: %v", lang, fmtStr, videoID, err)
-				continue
-			}
-			key := lang + "." + fmtStr
-			subPaths[key] = path
-		}
-	}
-	return subPaths
-}
-
 func (p *Pipeline) downloadAudio(ctx context.Context, video *ytlib.Video, videoID string) string {
 	if err := CheckYTDLP(); err != nil {
 		log.Printf("[youtube] %v", err)
@@ -207,18 +157,11 @@ func (p *Pipeline) downloadAudio(ctx context.Context, video *ytlib.Video, videoI
 }
 
 func (p *Pipeline) transcribeAudio(ctx context.Context, audioPath, videoID string) string {
-	if err := transcriber.CheckWhisper(); err != nil {
-		log.Printf("[youtube] %v", err)
+	if p.transcriber == nil {
+		log.Printf("[youtube] no transcriber configured, skipping %s", videoID)
 		return ""
 	}
-	wt := transcriber.NewWhisperTranscriber(p.cfg.TranscriberModelDir)
-	opts := transcriber.Options{
-		Model:    p.cfg.TranscriberModel,
-		ModelDir: p.cfg.TranscriberModelDir,
-		Language: p.cfg.TranscriberLanguage,
-		Task:     "transcribe",
-	}
-	tr, err := wt.Transcribe(ctx, audioPath, opts)
+	tr, err := p.transcriber.Transcribe(ctx, audioPath)
 	if err != nil {
 		log.Printf("[youtube] transcription failed for %s: %v", videoID, err)
 		return ""

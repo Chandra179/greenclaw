@@ -13,6 +13,7 @@ import (
 	"greenclaw/internal/fetcher"
 	"greenclaw/internal/router"
 	"greenclaw/internal/store"
+	"greenclaw/internal/transcriber"
 	"greenclaw/internal/youtube"
 )
 
@@ -39,10 +40,20 @@ type Scraper struct {
 	httpSem       chan struct{}
 	browserSem    chan struct{}
 	ytPipelineCfg youtube.PipelineConfig
+	transcriber   transcriber.Client
 }
 
 // New creates a Scraper with the given configuration.
 func New(cfg config.Config) *Scraper {
+	var t transcriber.Client
+	if cfg.YouTube.TranscribeAudio {
+		var err error
+		t, err = transcriber.New(cfg.Transcriber)
+		if err != nil {
+			log.Printf("[scraper] transcriber init failed: %v", err)
+		}
+	}
+
 	return &Scraper{
 		cfg: cfg,
 		client: &http.Client{
@@ -61,10 +72,8 @@ func New(cfg config.Config) *Scraper {
 			SubtitleFormats:    cfg.YouTube.SubtitleFormats,
 			SubtitleOutputDir:  cfg.YouTube.SubtitleOutputDir,
 			TranscribeAudio:    cfg.YouTube.TranscribeAudio,
-			TranscriberModel:    cfg.Transcriber.Model,
-			TranscriberModelDir: cfg.Transcriber.ModelDir,
-			TranscriberLanguage: cfg.Transcriber.Language,
 		},
+		transcriber: t,
 	}
 }
 
@@ -138,7 +147,7 @@ func (s *Scraper) fetchURL(ctx context.Context, url string) (*store.Result, erro
 	// Short-circuit YouTube URLs — no HEAD request needed
 	if ytType, id, ok := router.IsYouTube(url); ok {
 		log.Printf("[router] %s → youtube (%d, %s)", url, ytType, id)
-		pipeline := youtube.NewPipeline(youtube.NewClient(s.client), s.ytPipelineCfg)
+		pipeline := youtube.NewPipeline(youtube.New(s.client), s.ytPipelineCfg, s.transcriber)
 		return pipeline.Process(ctx, url, ytType, id)
 	}
 

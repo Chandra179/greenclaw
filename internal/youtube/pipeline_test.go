@@ -9,9 +9,9 @@ import (
 )
 
 func TestPipelineProcessChannel(t *testing.T) {
-	client := NewClient(nil)
+	client := New(nil)
 	cfg := PipelineConfig{}
-	p := NewPipeline(client, cfg)
+	p := NewPipeline(client, cfg, nil)
 
 	result, err := p.processChannel(context.Background(), "https://www.youtube.com/channel/UC123", "UC123")
 	if err != nil {
@@ -33,9 +33,9 @@ func TestPipelineProcessChannel(t *testing.T) {
 }
 
 func TestPipelineProcessRouting(t *testing.T) {
-	client := NewClient(nil)
+	client := New(nil)
 	cfg := PipelineConfig{}
-	p := NewPipeline(client, cfg)
+	p := NewPipeline(client, cfg, nil)
 
 	// Channel routing should work via Process
 	result, err := p.Process(context.Background(), "https://www.youtube.com/channel/UC123", router.YouTubeChannel, "UC123")
@@ -73,20 +73,14 @@ func TestPipelineConfigAllStages(t *testing.T) {
 		SubtitleFormats:    []string{"srt", "vtt"},
 		SubtitleOutputDir:  "/tmp/subs",
 		TranscribeAudio:    true,
-		TranscriberModel:    "base",
-		TranscriberModelDir: "/models/whisper",
-		TranscriberLanguage: "en",
 	}
 
-	p := NewPipeline(NewClient(nil), cfg)
+	p := NewPipeline(New(nil), cfg, nil)
 	if !p.cfg.ExtractTranscripts {
 		t.Error("ExtractTranscripts should be true")
 	}
 	if !p.cfg.TranscribeAudio {
 		t.Error("TranscribeAudio should be true")
-	}
-	if p.cfg.TranscriberModel != "base" {
-		t.Errorf("TranscriberModel = %q, want %q", p.cfg.TranscriberModel, "base")
 	}
 	if len(p.cfg.TranscriptLangs) != 2 {
 		t.Errorf("TranscriptLangs length = %d, want 2", len(p.cfg.TranscriptLangs))
@@ -97,7 +91,7 @@ func TestPipelineTranscriptsOnly(t *testing.T) {
 	cfg := PipelineConfig{
 		ExtractTranscripts: true,
 	}
-	p := NewPipeline(NewClient(nil), cfg)
+	p := NewPipeline(New(nil), cfg, nil)
 	if !p.cfg.ExtractTranscripts {
 		t.Error("ExtractTranscripts should be true")
 	}
@@ -114,7 +108,7 @@ func TestPipelineAudioOnly(t *testing.T) {
 		DownloadAudio:  true,
 		AudioOutputDir: "/tmp/audio",
 	}
-	p := NewPipeline(NewClient(nil), cfg)
+	p := NewPipeline(New(nil), cfg, nil)
 	if p.cfg.ExtractTranscripts {
 		t.Error("ExtractTranscripts should be false")
 	}

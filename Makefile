@@ -3,7 +3,7 @@
 BIN := greenclaw
 
 build:
-	go build -o $(BIN) .
+	go build -o $(BIN) ./cmd/app
 
 test:
 	go test ./...

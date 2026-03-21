@@ -1,6 +1,7 @@
 package youtube
 
 import (
+	"strings"
 	"testing"
 
 	ytlib "github.com/kkdai/youtube/v2"
@@ -35,7 +36,7 @@ func TestAudioStreamSelection(t *testing.T) {
 	var selected *ytlib.Format
 	for i := range audioFormats {
 		f := &audioFormats[i]
-		if f.MimeType != "" && (contains(f.MimeType, "opus") || contains(f.MimeType, "webm")) {
+		if f.MimeType != "" && (strings.Contains(f.MimeType, "opus") || strings.Contains(f.MimeType, "webm")) {
 			if selected == nil || f.Bitrate > selected.Bitrate {
 				selected = f
 			}
@@ -71,7 +72,7 @@ func TestAudioStreamSelectionFallback(t *testing.T) {
 	var selected *ytlib.Format
 	for i := range audioFormats {
 		f := &audioFormats[i]
-		if contains(f.MimeType, "opus") || contains(f.MimeType, "webm") {
+		if strings.Contains(f.MimeType, "opus") || strings.Contains(f.MimeType, "webm") {
 			if selected == nil || f.Bitrate > selected.Bitrate {
 				selected = f
 			}
@@ -94,15 +95,3 @@ func TestAudioStreamSelectionFallback(t *testing.T) {
 	}
 }
 
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && searchString(s, substr)
-}
-
-func searchString(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
-}

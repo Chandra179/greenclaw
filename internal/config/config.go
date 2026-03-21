@@ -32,8 +32,8 @@ type YouTubeConfig struct {
 
 // TranscriberConfig holds speech-to-text transcription settings.
 type TranscriberConfig struct {
-	Model    string `yaml:"model"`
-	ModelDir string `yaml:"model_dir"`
+	Endpoint string `yaml:"endpoint"` // URL of remote whisper HTTP service
+	Timeout  string `yaml:"timeout"`  // Transcription timeout (e.g. "5m")
 	Language string `yaml:"language"`
 }
 
@@ -56,8 +56,7 @@ func Default() Config {
 			TranscribeAudio:    false,
 		},
 		Transcriber: TranscriberConfig{
-			Model:    "base",
-			ModelDir: "/models/whisper",
+			Timeout:  "5m",
 			Language: "",
 		},
 	}

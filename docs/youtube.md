@@ -53,7 +53,6 @@ Fetches via `youtube.Client.GetVideoMetadata`:
 Fetches YouTube's timed text XML format and converts to plain text.
 
 - **Single language**: `GetTranscript(ctx, video, "en")` returns one caption track
-- **All languages**: `GetAllTranscripts(ctx, video)` fetches every available track
 - Language filtering via `transcript_langs` config (empty = all languages)
 - HTML entities are unescaped during parsing
 
@@ -76,18 +75,6 @@ When YouTube captions are unavailable, greenclaw transcribes downloaded audio us
 - Default model: `base` (74 MB, ~16× realtime on a 4-core CPU)
 
 See [ADR 002](adr/002-audio-transcription.md) for engine selection rationale.
-
-### Subtitle Export
-
-`ExportSubtitles` converts caption tracks to standard subtitle formats:
-
-| Format | Extension | Notes |
-| ------ | --------- | ----- |
-| SRT | `.srt` | SubRip, `HH:MM:SS,mmm` timing |
-| VTT | `.vtt` | WebVTT, `HH:MM:SS.mmm` timing |
-| TTML | `.ttml` | XML-based, W3C standard |
-
-Output: `<subtitleOutputDir>/<videoID>.<lang>.<format>`
 
 ### Playlist Support
 
@@ -115,35 +102,7 @@ youtube:
   subtitle_output_dir: downloads/subtitles
 
 transcriber:
-  model: base                       # Whisper model: tiny, base, small, medium, large-v3
-  model_dir: /models/whisper        # Directory for model files
-  language: ""                      # ISO 639-1 code, empty = auto-detect
+  endpoint: http://host.docker.internal:9000
+  timeout: 5m
+  language: "en"
 ```
-
----
-
-## CLI Flags
-
-```bash
-go run main.go --youtube-audio https://www.youtube.com/watch?v=ID
-go run main.go --youtube-subtitles srt,vtt https://www.youtube.com/watch?v=ID
-go run main.go --youtube-langs en,es https://www.youtube.com/watch?v=ID
-go run main.go --youtube-transcribe https://www.youtube.com/watch?v=ID
-```
-
----
-
-## Package Layout
-
-| File | Responsibility |
-| ---- | -------------- |
-| `internal/router/youtube.go` | URL detection and classification |
-| `internal/store/youtube.go` | Data structures (`YouTubeData`, `CaptionTrack`, `PlaylistItem`) |
-| `internal/youtube/client.go` | Video metadata and playlist extraction |
-| `internal/youtube/transcript.go` | Caption/transcript fetching and parsing |
-| `internal/youtube/audio.go` | yt-dlp audio download orchestration |
-| `internal/youtube/subtitle.go` | Subtitle format conversion and export |
-| `internal/scraper/youtube.go` | Orchestration of all YouTube extraction |
-| `internal/transcriber/transcriber.go` | Interface, `Options`, and `Result` types |
-| `internal/transcriber/whisper.go` | faster-whisper subprocess wrapper |
-| `internal/config/config.go` | `YouTubeConfig` + `TranscriberConfig` structs |

@@ -16,8 +16,8 @@ type Client struct {
 	yt *ytlib.Client
 }
 
-// NewClient creates a YouTube client using the given HTTP client.
-func NewClient(httpClient *http.Client) *Client {
+// New creates a YouTube client using the given HTTP client.
+func New(httpClient *http.Client) *Client {
 	return &Client{
 		yt: &ytlib.Client{
 			HTTPClient: httpClient,

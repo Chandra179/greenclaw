@@ -8,9 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 go build ./...          # build
 go test ./...           # run all tests
 go test ./internal/...  # run tests, specific package (e.g. ./internal/fetcher)
-go run main.go <url>    # run with a URL
-go run main.go --urls-file urls.txt  # run with a file of URLs
-go run main.go --output json <url>   # JSON output
+go run ./cmd/app <url>    # run with a URL
 ```
 
 ## Architecture
@@ -33,7 +31,8 @@ URL → router.Classify (HEAD) → content type → fetcher
 - **`internal/fetcher`** — Stage 1 HTTP fetching (goquery for HTML, raw unmarshal for JSON/XML, io.Copy for binaries). Returns `ErrNeedsEscalation` when a plain HTTP fetch is blocked/insufficient.
 - **`internal/browser`** — go-rod browser pool with stealth plugin; recycles the browser instance every N pages (`RecycleAfter`, default 100) to prevent memory leaks. Blocks images, fonts, CSS, ads via request interception.
 - **`internal/store`** — in-memory thread-safe result store. `Result` struct is the universal output type.
-- **`internal/scraper`** — orchestrates concurrency via two semaphore channels (`httpSem`, `browserSem`), retry with exponential backoff, and graceful context cancellation.
+- **`scraper`** — top-level orchestrator; concurrency via two semaphore channels (`httpSem`, `browserSem`), retry with exponential backoff, graceful context cancellation.
+- **`cmd/app`** — HTTP server entrypoint (`POST /extract`).
 - **`internal/config`** — `Config` struct with defaults (20 HTTP / 5 browser concurrent sessions, 30s timeout, 3 retries).
 
 ### Concurrency model
