@@ -15,6 +15,7 @@ import (
 	"greenclaw/internal/store"
 	"greenclaw/internal/youtube"
 	"greenclaw/pkg/transcribe"
+	"greenclaw/pkg/ytdl"
 )
 
 // ResultStore abstracts result storage for testability.
@@ -71,6 +72,16 @@ func New(cfg config.Config) *Scraper {
 			SubtitleFormats:    cfg.YouTube.SubtitleFormats,
 			SubtitleOutputDir:  cfg.YouTube.SubtitleOutputDir,
 			TranscribeAudio:    cfg.YouTube.TranscribeAudio,
+			YTDLOptions: ytdl.Options{
+				CookiesFromBrowser: cfg.YouTube.CookiesFromBrowser,
+				CookiesFile:        cfg.YouTube.CookiesFile,
+				SleepInterval:      cfg.YouTube.SleepInterval,
+				MaxSleepInterval:   cfg.YouTube.MaxSleepInterval,
+				PlayerClients:      cfg.YouTube.PlayerClients,
+				POToken:            cfg.YouTube.POToken,
+				JSRuntime:          cfg.YouTube.JSRuntime,
+				UserAgent:          cfg.YouTube.UserAgent,
+			},
 		},
 		transcriber: t,
 	}

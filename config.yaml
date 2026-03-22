@@ -7,12 +7,20 @@ recycle_after: 100
 
 youtube:
   extract_transcripts: true
-  transcript_langs: []
+  transcript_langs: [en]
   download_audio: true
   audio_output_dir: downloads/audio
   subtitle_formats: [srt]
   subtitle_output_dir: downloads/subtitles
   transcribe_audio: true
+  # cookies_from_browser: brave
+  cookies_file: cookies.txt
+  sleep_interval: 2
+  max_sleep_interval: 5
+  # player_clients: [web, mweb, android_vr, default]
+  js_runtime: node
+  # po_token: ""
+  # user_agent: ""
 
 transcriber:
   endpoint: http://host.docker.internal:9000

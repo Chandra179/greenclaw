@@ -9,8 +9,8 @@ import (
 )
 
 // DownloadAudio downloads a low-bitrate audio track suitable for transcription.
-func (c *Client) DownloadAudio(ctx context.Context, video *ytlib.Video, outputDir string) (string, error) {
-	return ytdl.DownloadAudio(ctx, video.ID, outputDir)
+func (c *Client) DownloadAudio(ctx context.Context, video *ytlib.Video, outputDir string, opts ytdl.Options) (string, error) {
+	return ytdl.DownloadAudio(ctx, video.ID, outputDir, opts)
 }
 
 // CheckYTDLP verifies that yt-dlp is available in PATH.

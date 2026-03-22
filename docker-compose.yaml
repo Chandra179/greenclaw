@@ -5,5 +5,6 @@ services:
       - "8080:8080"
     volumes:
       - ./downloads:/app/downloads
+      - ./cookies.txt:/app/cookies.txt:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"

@@ -11,6 +11,7 @@ import (
 	"greenclaw/internal/router"
 	"greenclaw/internal/store"
 	"greenclaw/pkg/transcribe"
+	"greenclaw/pkg/ytdl"
 
 	ytlib "github.com/kkdai/youtube/v2"
 )
@@ -25,6 +26,7 @@ type PipelineConfig struct {
 	SubtitleFormats    []string
 	SubtitleOutputDir  string
 	TranscribeAudio    bool
+	YTDLOptions        ytdl.Options
 }
 
 // Process handles a YouTube URL based on its type (video, playlist, channel).
@@ -130,7 +132,7 @@ func downloadAudio(ctx context.Context, client *Client, cfg PipelineConfig, vide
 		log.Printf("[youtube] %v", err)
 		return ""
 	}
-	audioPath, err := client.DownloadAudio(ctx, video, cfg.AudioOutputDir)
+	audioPath, err := client.DownloadAudio(ctx, video, cfg.AudioOutputDir, cfg.YTDLOptions)
 	if err != nil {
 		log.Printf("[youtube] audio download failed for %s: %v", videoID, err)
 		return ""
