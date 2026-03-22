@@ -8,6 +8,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	llms "greenclaw/internal/llm"
 	"greenclaw/internal/router"
 	"greenclaw/internal/store"
 	"greenclaw/pkg/transcribe"
@@ -27,21 +28,22 @@ type PipelineConfig struct {
 	SubtitleOutputDir  string
 	TranscribeAudio    bool
 	YTDLOptions        ytdl.Options
+	ProcessingStyles   []llms.ProcessingStyle
 }
 
 // Process handles a YouTube URL based on its type (video, playlist, channel).
-func Process(ctx context.Context, client *Client, cfg PipelineConfig, t transcribe.Client, url string, ytType router.YouTubeURLType, id string) (*store.Result, error) {
+func Process(ctx context.Context, client *Client, cfg PipelineConfig, t transcribe.Client, llm llms.Client, url string, ytType router.YouTubeURLType, id string) (*store.Result, error) {
 	switch ytType {
 	case router.YouTubePlaylist:
 		return processPlaylist(ctx, client, url, id)
 	case router.YouTubeChannel:
 		return processChannel(ctx, url, id)
 	default:
-		return processVideo(ctx, client, cfg, t, url, id)
+		return processVideo(ctx, client, cfg, t, llm, url, id)
 	}
 }
 
-func processVideo(ctx context.Context, client *Client, cfg PipelineConfig, t transcribe.Client, url, videoID string) (*store.Result, error) {
+func processVideo(ctx context.Context, client *Client, cfg PipelineConfig, t transcribe.Client, llm llms.Client, url, videoID string) (*store.Result, error) {
 	// Stage 1: metadata (sequential — everything else depends on it)
 	ytData, video, err := client.GetVideoMetadata(ctx, videoID)
 	if err != nil {
@@ -53,7 +55,6 @@ func processVideo(ctx context.Context, client *Client, cfg PipelineConfig, t tra
 		ContentType: store.ContentYouTubeVideo,
 		Title:       video.Title,
 		Description: video.Description,
-		Stage:       1,
 		FetchedAt:   time.Now(),
 	}
 
@@ -106,7 +107,32 @@ func processVideo(ctx context.Context, client *Client, cfg PipelineConfig, t tra
 		result.Text = whisperText
 	}
 
-	result.RawData = ytData
+	// Stage 5: LLM processing (sequential, requires transcript text)
+	if result.Text != "" && len(cfg.ProcessingStyles) > 0 && llm != nil {
+		for _, style := range cfg.ProcessingStyles {
+			pr, err := llm.Process(ctx, llms.Request{
+				Style:    style,
+				Title:    video.Title,
+				Duration: ytData.Duration,
+				Text:     result.Text,
+			})
+			if err != nil {
+				log.Printf("[youtube] processing style %s failed for %s: %v", style, videoID, err)
+				continue
+			}
+			ytData.Processing = append(ytData.Processing, store.ProcessingResult{
+				Style:   string(pr.Style),
+				Content: pr.Content,
+			})
+		}
+		if len(ytData.Processing) < len(cfg.ProcessingStyles) {
+			log.Printf("[youtube] %d/%d processing styles succeeded for %s",
+				len(ytData.Processing), len(cfg.ProcessingStyles), videoID)
+		}
+	}
+
+	result.YouTube = ytData
+
 	return result, nil
 }
 
@@ -164,32 +190,20 @@ func processPlaylist(ctx context.Context, client *Client, url, playlistID string
 		titles = append(titles, item.Title)
 	}
 
-	ytData := &store.YouTubeData{
-		PlaylistItems: items,
-	}
-
 	return &store.Result{
 		URL:         url,
 		ContentType: store.ContentYouTubePlaylist,
 		Title:       "Playlist: " + playlistID,
 		Description: strings.Join(titles, "; "),
-		RawData:     ytData,
-		Stage:       1,
 		FetchedAt:   time.Now(),
 	}, nil
 }
 
 func processChannel(_ context.Context, url, channelID string) (*store.Result, error) {
-	ytData := &store.YouTubeData{
-		ChannelID: channelID,
-	}
-
 	return &store.Result{
 		URL:         url,
 		ContentType: store.ContentYouTubeChannel,
 		Title:       "Channel: " + channelID,
-		RawData:     ytData,
-		Stage:       1,
 		FetchedAt:   time.Now(),
 	}, nil
 }

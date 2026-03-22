@@ -45,9 +45,6 @@ func TestFetchHTML(t *testing.T) {
 	if result.Description != "A test page for scraping" {
 		t.Errorf("got description %q, want %q", result.Description, "A test page for scraping")
 	}
-	if result.Stage != 1 {
-		t.Errorf("got stage %d, want 1", result.Stage)
-	}
 	// Should have 2 valid links (anchors and js: links filtered out)
 	if len(result.Links) != 2 {
 		t.Errorf("got %d links, want 2: %v", len(result.Links), result.Links)
@@ -111,8 +108,5 @@ func TestFetchJSON(t *testing.T) {
 	}
 	if result.ContentType != "json" {
 		t.Errorf("got type %q, want json", result.ContentType)
-	}
-	if result.RawData != `{"key": "value"}` {
-		t.Errorf("got raw data %v", result.RawData)
 	}
 }

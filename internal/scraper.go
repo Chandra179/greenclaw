@@ -11,6 +11,7 @@ import (
 	"greenclaw/internal/browser"
 	"greenclaw/internal/config"
 	"greenclaw/internal/fetcher"
+	"greenclaw/internal/llm"
 	"greenclaw/internal/router"
 	"greenclaw/internal/store"
 	"greenclaw/internal/youtube"
@@ -42,6 +43,7 @@ type Scraper struct {
 	browserSem  chan struct{}
 	ytCfg       youtube.PipelineConfig
 	transcriber transcribe.Client
+	processor   llm.Client
 }
 
 // New creates a Scraper with the given configuration.
@@ -53,6 +55,19 @@ func New(cfg config.Config) *Scraper {
 			d = 5 * time.Minute
 		}
 		t = transcribe.NewHTTPClient(cfg.Transcriber.Endpoint, d, cfg.Transcriber.Language)
+	}
+
+	var proc llm.Client
+	var styles []llm.ProcessingStyle
+	if len(cfg.LLM.ProcessingStyles) > 0 {
+		d, err := time.ParseDuration(cfg.LLM.Timeout)
+		if err != nil {
+			d = 60 * time.Second
+		}
+		proc = llm.NewOllamaClient(cfg.LLM.Endpoint, cfg.LLM.Model, d, cfg.LLM.NumCtx)
+		for _, s := range cfg.LLM.ProcessingStyles {
+			styles = append(styles, llm.ProcessingStyle(s))
+		}
 	}
 
 	return &Scraper{
@@ -82,8 +97,10 @@ func New(cfg config.Config) *Scraper {
 				JSRuntime:          cfg.YouTube.JSRuntime,
 				UserAgent:          cfg.YouTube.UserAgent,
 			},
+			ProcessingStyles: styles,
 		},
 		transcriber: t,
+		processor:   proc,
 	}
 }
 
@@ -138,7 +155,7 @@ func (s *Scraper) processURL(ctx context.Context, url string) {
 		}
 
 		s.store.Put(result)
-		log.Printf("[done] %s (stage %d)", url, result.Stage)
+		log.Printf("[done] %s", url)
 		return
 	}
 
@@ -157,7 +174,7 @@ func (s *Scraper) fetchURL(ctx context.Context, url string) (*store.Result, erro
 	// Short-circuit YouTube URLs — no HEAD request needed
 	if ytType, id, ok := router.IsYouTube(url); ok {
 		log.Printf("[router] %s → youtube (%d, %s)", url, ytType, id)
-		return youtube.Process(ctx, youtube.New(s.client), s.ytCfg, s.transcriber, url, ytType, id)
+		return youtube.Process(ctx, youtube.New(s.client), s.ytCfg, s.transcriber, s.processor, url, ytType, id)
 	}
 
 	ct, err := router.Classify(ctx, s.client, url)

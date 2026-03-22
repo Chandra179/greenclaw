@@ -21,10 +21,9 @@ type Result struct {
 	Description string      `json:"description,omitempty"`
 	Text        string      `json:"text,omitempty"`
 	Links       []string    `json:"links,omitempty"`
-	FilePath    string      `json:"file_path,omitempty"` // for binary downloads
-	RawData     any         `json:"raw_data,omitempty"`  // for JSON/XML
-	Stage       int         `json:"stage"`               // 1 = HTTP, 2 = browser
-	Error       string      `json:"error,omitempty"`
+	FilePath    string       `json:"file_path,omitempty"` // for binary downloads
+	YouTube     *YouTubeData `json:"youtube,omitempty"`
+	Error       string       `json:"error,omitempty"`
 	FetchedAt   time.Time   `json:"fetched_at"`
 }
 

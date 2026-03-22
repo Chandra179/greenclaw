@@ -104,7 +104,6 @@ func (p *Pool) FetchPage(ctx context.Context, url string) (*store.Result, error)
 	result := &store.Result{
 		URL:         url,
 		ContentType: store.ContentHTML,
-		Stage:       2,
 		FetchedAt:   time.Now(),
 	}
 

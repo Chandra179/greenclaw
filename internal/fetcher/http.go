@@ -56,7 +56,6 @@ func FetchHTML(ctx context.Context, client HTTPDoer, url string) (*store.Result,
 	result := &store.Result{
 		URL:         url,
 		ContentType: store.ContentHTML,
-		Stage:       1,
 		FetchedAt:   time.Now(),
 	}
 
@@ -128,7 +127,6 @@ func DownloadBinary(ctx context.Context, client HTTPDoer, url, outputDir string)
 		URL:         url,
 		ContentType: store.ContentBinary,
 		FilePath:    dest,
-		Stage:       1,
 		FetchedAt:   time.Now(),
 	}, nil
 }
@@ -148,16 +146,9 @@ func FetchJSON(ctx context.Context, client HTTPDoer, url string) (*store.Result,
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("reading body: %w", err)
-	}
-
 	return &store.Result{
 		URL:         url,
 		ContentType: store.ContentJSON,
-		RawData:     string(body),
-		Stage:       1,
 		FetchedAt:   time.Now(),
 	}, nil
 }
@@ -177,16 +168,9 @@ func FetchXML(ctx context.Context, client HTTPDoer, url string) (*store.Result, 
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("reading body: %w", err)
-	}
-
 	return &store.Result{
 		URL:         url,
 		ContentType: store.ContentXML,
-		RawData:     string(body),
-		Stage:       1,
 		FetchedAt:   time.Now(),
 	}, nil
 }

@@ -19,17 +19,10 @@ func TestProcessChannel(t *testing.T) {
 	if result.Title != "Channel: UC123" {
 		t.Errorf("title = %q, want %q", result.Title, "Channel: UC123")
 	}
-	ytData, ok := result.RawData.(*store.YouTubeData)
-	if !ok {
-		t.Fatal("RawData is not *store.YouTubeData")
-	}
-	if ytData.ChannelID != "UC123" {
-		t.Errorf("ChannelID = %q, want %q", ytData.ChannelID, "UC123")
-	}
 }
 
 func TestProcessRouting(t *testing.T) {
-	result, err := Process(context.Background(), New(nil), PipelineConfig{}, nil, "https://www.youtube.com/channel/UC123", router.YouTubeChannel, "UC123")
+	result, err := Process(context.Background(), New(nil), PipelineConfig{}, nil, nil, "https://www.youtube.com/channel/UC123", router.YouTubeChannel, "UC123")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

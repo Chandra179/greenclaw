@@ -16,6 +16,7 @@ type Config struct {
 	RecycleAfter       int               `yaml:"recycle_after"`
 	YouTube            YouTubeConfig     `yaml:"youtube"`
 	Transcriber        TranscriberConfig `yaml:"transcriber"`
+	LLM                LLMConfig         `yaml:"llm"`
 }
 
 // YouTubeConfig holds YouTube-specific extraction settings.
@@ -54,6 +55,15 @@ type TranscriberConfig struct {
 	Language string `yaml:"language"`
 }
 
+// LLMConfig holds settings for LLM-based transcript processing.
+type LLMConfig struct {
+	Endpoint         string   `yaml:"endpoint"`          // default: http://localhost:11434
+	Model            string   `yaml:"model"`             // default: llama3.2
+	Timeout          string   `yaml:"timeout"`           // default: 60s
+	ProcessingStyles []string `yaml:"processing_styles"` // e.g. ["summary", "takeaways"]
+	NumCtx           int      `yaml:"num_ctx"`           // context window size (default: 8192)
+}
+
 func Default() Config {
 	return Config{
 		Port:               8080,
@@ -74,6 +84,12 @@ func Default() Config {
 		Transcriber: TranscriberConfig{
 			Timeout:  "5m",
 			Language: "",
+		},
+		LLM: LLMConfig{
+			Endpoint: "http://localhost:11434",
+			Model:    "llama3.2",
+			Timeout:  "60s",
+			NumCtx:   8192,
 		},
 	}
 }
