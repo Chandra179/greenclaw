@@ -27,7 +27,7 @@ llm:
   model: phi4-mini:latest
   timeout: 120s
   processing_styles: [summary, takeaways]
-  num_ctx: 8192
+  num_ctx: 4096
 
 transcriber:
   endpoint: http://host.docker.internal:9000
