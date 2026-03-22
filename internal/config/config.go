@@ -8,13 +8,13 @@ import (
 )
 
 type Config struct {
-	Port               int              `yaml:"port"`
-	HTTPConcurrency    int              `yaml:"http_concurrency"`
-	BrowserConcurrency int              `yaml:"browser_concurrency"`
-	Timeout            time.Duration    `yaml:"timeout"`
-	RetryAttempts      int              `yaml:"retry_attempts"`
-	RecycleAfter       int              `yaml:"recycle_after"`
-	YouTube            YouTubeConfig    `yaml:"youtube"`
+	Port               int               `yaml:"port"`
+	HTTPConcurrency    int               `yaml:"http_concurrency"`
+	BrowserConcurrency int               `yaml:"browser_concurrency"`
+	Timeout            time.Duration     `yaml:"timeout"`
+	RetryAttempts      int               `yaml:"retry_attempts"`
+	RecycleAfter       int               `yaml:"recycle_after"`
+	YouTube            YouTubeConfig     `yaml:"youtube"`
 	Transcriber        TranscriberConfig `yaml:"transcriber"`
 }
 
@@ -24,7 +24,6 @@ type YouTubeConfig struct {
 	TranscriptLangs    []string `yaml:"transcript_langs"`
 	DownloadAudio      bool     `yaml:"download_audio"`
 	AudioOutputDir     string   `yaml:"audio_output_dir"`
-	ExportSubtitles    bool     `yaml:"export_subtitles"`
 	SubtitleFormats    []string `yaml:"subtitle_formats"`
 	SubtitleOutputDir  string   `yaml:"subtitle_output_dir"`
 	TranscribeAudio    bool     `yaml:"transcribe_audio"`
@@ -50,7 +49,6 @@ func Default() Config {
 			TranscriptLangs:    nil,
 			DownloadAudio:      false,
 			AudioOutputDir:     "downloads/audio",
-			ExportSubtitles:    false,
 			SubtitleFormats:    []string{"srt"},
 			SubtitleOutputDir:  "downloads/subtitles",
 			TranscribeAudio:    false,

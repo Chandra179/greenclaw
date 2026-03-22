@@ -1,4 +1,4 @@
-package scraper
+package internal
 
 import (
 	"context"
@@ -13,8 +13,8 @@ import (
 	"greenclaw/internal/fetcher"
 	"greenclaw/internal/router"
 	"greenclaw/internal/store"
-	"greenclaw/internal/transcriber"
 	"greenclaw/internal/youtube"
+	"greenclaw/pkg/transcribe"
 )
 
 // ResultStore abstracts result storage for testability.
@@ -33,25 +33,25 @@ type BrowserFetcher interface {
 
 // Scraper orchestrates URL processing with concurrency control.
 type Scraper struct {
-	cfg           config.Config
-	client        *http.Client
-	store         ResultStore
-	browserPool   BrowserFetcher
-	httpSem       chan struct{}
-	browserSem    chan struct{}
-	ytPipelineCfg youtube.PipelineConfig
-	transcriber   transcriber.Client
+	cfg         config.Config
+	client      *http.Client
+	store       ResultStore
+	browserPool BrowserFetcher
+	httpSem     chan struct{}
+	browserSem  chan struct{}
+	ytCfg       youtube.PipelineConfig
+	transcriber transcribe.Client
 }
 
 // New creates a Scraper with the given configuration.
 func New(cfg config.Config) *Scraper {
-	var t transcriber.Client
+	var t transcribe.Client
 	if cfg.YouTube.TranscribeAudio {
-		var err error
-		t, err = transcriber.New(cfg.Transcriber)
+		d, err := time.ParseDuration(cfg.Transcriber.Timeout)
 		if err != nil {
-			log.Printf("[scraper] transcriber init failed: %v", err)
+			d = 5 * time.Minute
 		}
+		t = transcribe.NewHTTPClient(cfg.Transcriber.Endpoint, d, cfg.Transcriber.Language)
 	}
 
 	return &Scraper{
@@ -63,12 +63,11 @@ func New(cfg config.Config) *Scraper {
 		browserPool: browser.NewPool(cfg.RecycleAfter),
 		httpSem:     make(chan struct{}, cfg.HTTPConcurrency),
 		browserSem:  make(chan struct{}, cfg.BrowserConcurrency),
-		ytPipelineCfg: youtube.PipelineConfig{
+		ytCfg: youtube.PipelineConfig{
 			ExtractTranscripts: cfg.YouTube.ExtractTranscripts,
 			TranscriptLangs:    cfg.YouTube.TranscriptLangs,
 			DownloadAudio:      cfg.YouTube.DownloadAudio,
 			AudioOutputDir:     cfg.YouTube.AudioOutputDir,
-			ExportSubtitles:    cfg.YouTube.ExportSubtitles,
 			SubtitleFormats:    cfg.YouTube.SubtitleFormats,
 			SubtitleOutputDir:  cfg.YouTube.SubtitleOutputDir,
 			TranscribeAudio:    cfg.YouTube.TranscribeAudio,
@@ -147,8 +146,7 @@ func (s *Scraper) fetchURL(ctx context.Context, url string) (*store.Result, erro
 	// Short-circuit YouTube URLs — no HEAD request needed
 	if ytType, id, ok := router.IsYouTube(url); ok {
 		log.Printf("[router] %s → youtube (%d, %s)", url, ytType, id)
-		pipeline := youtube.NewPipeline(youtube.New(s.client), s.ytPipelineCfg, s.transcriber)
-		return pipeline.Process(ctx, url, ytType, id)
+		return youtube.Process(ctx, youtube.New(s.client), s.ytCfg, s.transcriber, url, ytType, id)
 	}
 
 	ct, err := router.Classify(ctx, s.client, url)

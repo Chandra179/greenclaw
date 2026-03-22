@@ -10,12 +10,12 @@ import (
 
 	"greenclaw/internal/router"
 	"greenclaw/internal/store"
-	"greenclaw/internal/transcriber"
+	"greenclaw/pkg/transcribe"
 
 	ytlib "github.com/kkdai/youtube/v2"
 )
 
-// PipelineConfig holds all settings needed by the YouTube pipeline.
+// PipelineConfig holds all settings needed by YouTube processing.
 type PipelineConfig struct {
 	ExtractTranscripts bool
 	TranscriptLangs    []string
@@ -27,33 +27,21 @@ type PipelineConfig struct {
 	TranscribeAudio    bool
 }
 
-// Pipeline orchestrates YouTube extraction as a multi-stage pipeline.
-type Pipeline struct {
-	client      *Client
-	cfg         PipelineConfig
-	transcriber transcriber.Client // nil when transcription is disabled
-}
-
-// NewPipeline creates a Pipeline with the given client, config, and optional transcriber.
-func NewPipeline(client *Client, cfg PipelineConfig, t transcriber.Client) *Pipeline {
-	return &Pipeline{client: client, cfg: cfg, transcriber: t}
-}
-
 // Process handles a YouTube URL based on its type (video, playlist, channel).
-func (p *Pipeline) Process(ctx context.Context, url string, ytType router.YouTubeURLType, id string) (*store.Result, error) {
+func Process(ctx context.Context, client *Client, cfg PipelineConfig, t transcribe.Client, url string, ytType router.YouTubeURLType, id string) (*store.Result, error) {
 	switch ytType {
 	case router.YouTubePlaylist:
-		return p.processPlaylist(ctx, url, id)
+		return processPlaylist(ctx, client, url, id)
 	case router.YouTubeChannel:
-		return p.processChannel(ctx, url, id)
+		return processChannel(ctx, url, id)
 	default:
-		return p.processVideo(ctx, url, id)
+		return processVideo(ctx, client, cfg, t, url, id)
 	}
 }
 
-func (p *Pipeline) processVideo(ctx context.Context, url, videoID string) (*store.Result, error) {
+func processVideo(ctx context.Context, client *Client, cfg PipelineConfig, t transcribe.Client, url, videoID string) (*store.Result, error) {
 	// Stage 1: metadata (sequential — everything else depends on it)
-	ytData, video, err := p.client.GetVideoMetadata(ctx, videoID)
+	ytData, video, err := client.GetVideoMetadata(ctx, videoID)
 	if err != nil {
 		return nil, err
 	}
@@ -71,22 +59,21 @@ func (p *Pipeline) processVideo(ctx context.Context, url, videoID string) (*stor
 	var (
 		captions    []store.CaptionTrack
 		captionText string
-		subPaths    map[string]string
 		audioPath   string
 	)
 
 	g, gctx := errgroup.WithContext(ctx)
 
-	if p.cfg.ExtractTranscripts {
+	if cfg.ExtractTranscripts {
 		g.Go(func() error {
-			captions, captionText = p.fetchTranscripts(gctx, video, videoID)
+			captions, captionText = fetchTranscripts(gctx, client, cfg, video, videoID)
 			return nil
 		})
 	}
 
-	if p.cfg.DownloadAudio {
+	if cfg.DownloadAudio {
 		g.Go(func() error {
-			audioPath = p.downloadAudio(gctx, video, videoID)
+			audioPath = downloadAudio(gctx, client, cfg, video, videoID)
 			return nil
 		})
 	}
@@ -99,9 +86,6 @@ func (p *Pipeline) processVideo(ctx context.Context, url, videoID string) (*stor
 	if len(captions) > 0 {
 		ytData.Captions = captions
 	}
-	if len(subPaths) > 0 {
-		ytData.SubtitlePaths = subPaths
-	}
 	if audioPath != "" {
 		ytData.AudioPath = audioPath
 		result.FilePath = audioPath
@@ -109,8 +93,8 @@ func (p *Pipeline) processVideo(ctx context.Context, url, videoID string) (*stor
 
 	// Stage 4: transcribe audio (sequential, requires audio)
 	var whisperText string
-	if audioPath != "" && p.cfg.TranscribeAudio {
-		whisperText = p.transcribeAudio(ctx, audioPath, videoID)
+	if audioPath != "" && cfg.TranscribeAudio {
+		whisperText = transcribeAudio(ctx, t, audioPath, videoID)
 	}
 
 	// Choose text priority: captions > whisper
@@ -124,13 +108,11 @@ func (p *Pipeline) processVideo(ctx context.Context, url, videoID string) (*stor
 	return result, nil
 }
 
-func (p *Pipeline) fetchTranscripts(ctx context.Context, video *ytlib.Video, videoID string) ([]store.CaptionTrack, string) {
-	langs := p.cfg.TranscriptLangs
-
+func fetchTranscripts(ctx context.Context, client *Client, cfg PipelineConfig, video *ytlib.Video, videoID string) ([]store.CaptionTrack, string) {
 	var tracks []store.CaptionTrack
 	var firstText string
-	for _, lang := range langs {
-		track, _, err := p.client.GetTranscript(ctx, video, lang)
+	for _, lang := range cfg.TranscriptLangs {
+		track, _, err := client.GetTranscript(ctx, video, lang)
 		if err != nil {
 			log.Printf("[youtube] transcript %s failed for %s: %v", lang, videoID, err)
 			continue
@@ -143,12 +125,12 @@ func (p *Pipeline) fetchTranscripts(ctx context.Context, video *ytlib.Video, vid
 	return tracks, firstText
 }
 
-func (p *Pipeline) downloadAudio(ctx context.Context, video *ytlib.Video, videoID string) string {
+func downloadAudio(ctx context.Context, client *Client, cfg PipelineConfig, video *ytlib.Video, videoID string) string {
 	if err := CheckYTDLP(); err != nil {
 		log.Printf("[youtube] %v", err)
 		return ""
 	}
-	audioPath, err := p.client.DownloadAudio(ctx, video, p.cfg.AudioOutputDir)
+	audioPath, err := client.DownloadAudio(ctx, video, cfg.AudioOutputDir)
 	if err != nil {
 		log.Printf("[youtube] audio download failed for %s: %v", videoID, err)
 		return ""
@@ -156,12 +138,12 @@ func (p *Pipeline) downloadAudio(ctx context.Context, video *ytlib.Video, videoI
 	return audioPath
 }
 
-func (p *Pipeline) transcribeAudio(ctx context.Context, audioPath, videoID string) string {
-	if p.transcriber == nil {
+func transcribeAudio(ctx context.Context, t transcribe.Client, audioPath, videoID string) string {
+	if t == nil {
 		log.Printf("[youtube] no transcriber configured, skipping %s", videoID)
 		return ""
 	}
-	tr, err := p.transcriber.Transcribe(ctx, audioPath)
+	tr, err := t.Transcribe(ctx, audioPath)
 	if err != nil {
 		log.Printf("[youtube] transcription failed for %s: %v", videoID, err)
 		return ""
@@ -169,8 +151,8 @@ func (p *Pipeline) transcribeAudio(ctx context.Context, audioPath, videoID strin
 	return tr.Text
 }
 
-func (p *Pipeline) processPlaylist(ctx context.Context, url, playlistID string) (*store.Result, error) {
-	items, err := p.client.GetPlaylistItems(ctx, playlistID)
+func processPlaylist(ctx context.Context, client *Client, url, playlistID string) (*store.Result, error) {
+	items, err := client.GetPlaylistItems(ctx, playlistID)
 	if err != nil {
 		return nil, err
 	}
@@ -195,7 +177,7 @@ func (p *Pipeline) processPlaylist(ctx context.Context, url, playlistID string) 
 	}, nil
 }
 
-func (p *Pipeline) processChannel(ctx context.Context, url, channelID string) (*store.Result, error) {
+func processChannel(_ context.Context, url, channelID string) (*store.Result, error) {
 	ytData := &store.YouTubeData{
 		ChannelID: channelID,
 	}

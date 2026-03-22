@@ -10,8 +10,8 @@ import (
 	"os/signal"
 	"syscall"
 
+	"greenclaw/internal"
 	"greenclaw/internal/config"
-	"greenclaw/scraper"
 )
 
 type extractRequest struct {
@@ -24,7 +24,7 @@ func main() {
 		log.Fatalf("error loading config: %v", err)
 	}
 
-	s := scraper.New(cfg)
+	s := internal.New(cfg)
 	defer s.Close()
 
 	mux := http.NewServeMux()
@@ -48,7 +48,7 @@ func main() {
 	}
 }
 
-func handleExtract(s *scraper.Scraper) http.HandlerFunc {
+func handleExtract(s *internal.Scraper) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req extractRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

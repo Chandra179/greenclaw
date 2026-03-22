@@ -10,7 +10,6 @@ youtube:
   transcript_langs: []
   download_audio: true
   audio_output_dir: downloads/audio
-  export_subtitles: false
   subtitle_formats: [srt]
   subtitle_output_dir: downloads/subtitles
   transcribe_audio: true

@@ -16,3 +16,6 @@ docker-build:
 
 docker-run:
 	docker compose up
+
+g:
+	nvidia-smi -l 1

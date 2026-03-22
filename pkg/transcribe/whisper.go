@@ -1,4 +1,4 @@
-package transcriber
+package transcribe
 
 import (
 	"context"
@@ -12,26 +12,24 @@ import (
 	"time"
 )
 
-// HTTPTranscriber sends audio to a remote whisper service over HTTP.
-type HTTPTranscriber struct {
+// HTTPClient sends audio to a remote Whisper service over HTTP.
+type HTTPClient struct {
 	endpoint   string
 	httpClient *http.Client
 	language   string
 }
 
-// NewHTTPTranscriber creates a transcriber that calls a remote whisper HTTP service.
-func NewHTTPTranscriber(endpoint string, timeout time.Duration, language string) *HTTPTranscriber {
-	return &HTTPTranscriber{
-		endpoint: endpoint,
-		httpClient: &http.Client{
-			Timeout: timeout,
-		},
-		language: language,
+// NewHTTPClient creates a client that calls a remote Whisper HTTP service.
+func NewHTTPClient(endpoint string, timeout time.Duration, language string) *HTTPClient {
+	return &HTTPClient{
+		endpoint:   endpoint,
+		httpClient: &http.Client{Timeout: timeout},
+		language:   language,
 	}
 }
 
 // Transcribe uploads the audio file to the remote service and returns the result.
-func (h *HTTPTranscriber) Transcribe(ctx context.Context, audioPath string) (*Result, error) {
+func (h *HTTPClient) Transcribe(ctx context.Context, audioPath string) (*Result, error) {
 	f, err := os.Open(audioPath)
 	if err != nil {
 		return nil, fmt.Errorf("opening audio file: %w", err)
@@ -41,7 +39,6 @@ func (h *HTTPTranscriber) Transcribe(ctx context.Context, audioPath string) (*Re
 	pr, pw := io.Pipe()
 	writer := multipart.NewWriter(pw)
 
-	// Write multipart form in a goroutine to stream the file
 	go func() {
 		defer pw.Close()
 		defer writer.Close()
@@ -55,7 +52,6 @@ func (h *HTTPTranscriber) Transcribe(ctx context.Context, audioPath string) (*Re
 			pw.CloseWithError(err)
 			return
 		}
-
 		if h.language != "" {
 			writer.WriteField("language", h.language)
 		}

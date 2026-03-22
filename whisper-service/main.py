@@ -22,7 +22,7 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from faster_whisper import WhisperModel
 
 # Changed defaults to be safer for 6GB VRAM out of the box
-MODEL_SIZE = os.getenv("WHISPER_MODEL", "medium") 
+MODEL_SIZE = os.getenv("WHISPER_MODEL", "small") 
 DEVICE = os.getenv("WHISPER_DEVICE", "cuda")
 COMPUTE_TYPE = os.getenv("WHISPER_COMPUTE_TYPE", "int8_float16")
 MODEL_DIR = os.getenv("WHISPER_MODEL_DIR") or None
@@ -66,7 +66,7 @@ async def transcribe(
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
         tmp_path = tmp.name
         while chunk := await file.read(1024 * 1024):
-            tmp.write(chunk)
+            tmp.write(chunk)    
 
     try:
         lang = language if language else None

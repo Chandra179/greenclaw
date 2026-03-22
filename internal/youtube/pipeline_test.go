@@ -8,12 +8,8 @@ import (
 	"greenclaw/internal/store"
 )
 
-func TestPipelineProcessChannel(t *testing.T) {
-	client := New(nil)
-	cfg := PipelineConfig{}
-	p := NewPipeline(client, cfg, nil)
-
-	result, err := p.processChannel(context.Background(), "https://www.youtube.com/channel/UC123", "UC123")
+func TestProcessChannel(t *testing.T) {
+	result, err := processChannel(context.Background(), "https://www.youtube.com/channel/UC123", "UC123")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -32,13 +28,8 @@ func TestPipelineProcessChannel(t *testing.T) {
 	}
 }
 
-func TestPipelineProcessRouting(t *testing.T) {
-	client := New(nil)
-	cfg := PipelineConfig{}
-	p := NewPipeline(client, cfg, nil)
-
-	// Channel routing should work via Process
-	result, err := p.Process(context.Background(), "https://www.youtube.com/channel/UC123", router.YouTubeChannel, "UC123")
+func TestProcessRouting(t *testing.T) {
+	result, err := Process(context.Background(), New(nil), PipelineConfig{}, nil, "https://www.youtube.com/channel/UC123", router.YouTubeChannel, "UC123")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -75,15 +66,14 @@ func TestPipelineConfigAllStages(t *testing.T) {
 		TranscribeAudio:    true,
 	}
 
-	p := NewPipeline(New(nil), cfg, nil)
-	if !p.cfg.ExtractTranscripts {
+	if !cfg.ExtractTranscripts {
 		t.Error("ExtractTranscripts should be true")
 	}
-	if !p.cfg.TranscribeAudio {
+	if !cfg.TranscribeAudio {
 		t.Error("TranscribeAudio should be true")
 	}
-	if len(p.cfg.TranscriptLangs) != 2 {
-		t.Errorf("TranscriptLangs length = %d, want 2", len(p.cfg.TranscriptLangs))
+	if len(cfg.TranscriptLangs) != 2 {
+		t.Errorf("TranscriptLangs length = %d, want 2", len(cfg.TranscriptLangs))
 	}
 }
 
@@ -91,14 +81,13 @@ func TestPipelineTranscriptsOnly(t *testing.T) {
 	cfg := PipelineConfig{
 		ExtractTranscripts: true,
 	}
-	p := NewPipeline(New(nil), cfg, nil)
-	if !p.cfg.ExtractTranscripts {
+	if !cfg.ExtractTranscripts {
 		t.Error("ExtractTranscripts should be true")
 	}
-	if p.cfg.DownloadAudio {
+	if cfg.DownloadAudio {
 		t.Error("DownloadAudio should be false")
 	}
-	if p.cfg.ExportSubtitles {
+	if cfg.ExportSubtitles {
 		t.Error("ExportSubtitles should be false")
 	}
 }
@@ -108,14 +97,13 @@ func TestPipelineAudioOnly(t *testing.T) {
 		DownloadAudio:  true,
 		AudioOutputDir: "/tmp/audio",
 	}
-	p := NewPipeline(New(nil), cfg, nil)
-	if p.cfg.ExtractTranscripts {
+	if cfg.ExtractTranscripts {
 		t.Error("ExtractTranscripts should be false")
 	}
-	if !p.cfg.DownloadAudio {
+	if !cfg.DownloadAudio {
 		t.Error("DownloadAudio should be true")
 	}
-	if p.cfg.AudioOutputDir != "/tmp/audio" {
-		t.Errorf("AudioOutputDir = %q, want %q", p.cfg.AudioOutputDir, "/tmp/audio")
+	if cfg.AudioOutputDir != "/tmp/audio" {
+		t.Errorf("AudioOutputDir = %q, want %q", cfg.AudioOutputDir, "/tmp/audio")
 	}
 }

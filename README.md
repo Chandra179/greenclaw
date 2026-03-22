@@ -14,7 +14,7 @@ make docker-build
 make docker-run
 curl -X POST http://localhost:8080/extract \
   -H 'Content-Type: application/json' \
-  -d '{"url": "https://www.youtube.com/watch?v=ApG9vjbHDCk"}'
+  -d '{"url": "https://www.youtube.com/watch?v=nOapM8i5jr0"}'
 ```
 
 ---
