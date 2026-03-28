@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	"log"
+	"net/http"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -31,8 +32,8 @@ func New(cfg config.Config) *Server {
 		AllowCredentials: false,
 	}))
 
-	r.POST("/extract", handleExtract(s))
-	r.POST("/extract/stream", handleExtractStream(s))
+	r.POST("/extract", handleExtract(s, cfg.LLM.Model, cfg.LLM.NumCtx))
+	r.POST("/extract/stream", handleExtractStream(s, cfg.LLM.Model, cfg.LLM.NumCtx))
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	return &Server{
@@ -40,6 +41,10 @@ func New(cfg config.Config) *Server {
 		pipeline: s,
 		router:   r,
 	}
+}
+
+func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	s.router.ServeHTTP(w, r)
 }
 
 func (s *Server) Run() error {

@@ -110,9 +110,15 @@ func (p *Pipeline) Run(ctx context.Context, urls []string) ResultStore {
 }
 
 // ProcessSingle processes a single URL and streams LLM progress via progressCh.
-func (p *Pipeline) ProcessSingle(ctx context.Context, url string, progressCh chan<- llm.ProgressEvent) (*store.Result, error) {
+// numCtx overrides the LLM context window size for this request; 0 uses the configured default.
+// styles overrides the processing styles for this request; nil uses the configured default.
+func (p *Pipeline) ProcessSingle(ctx context.Context, url string, progressCh chan<- llm.ProgressEvent, numCtx int, styles []llm.ProcessingStyle) (*store.Result, error) {
 	cfg := p.ytCfg
 	cfg.ProgressCh = progressCh
+	cfg.NumCtx = numCtx
+	if len(styles) > 0 {
+		cfg.ProcessingStyles = styles
+	}
 	return p.dispatch(ctx, url, cfg)
 }
 

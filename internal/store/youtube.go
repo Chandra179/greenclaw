@@ -13,10 +13,10 @@ type YouTubeData struct {
 	ViewCount     int               `json:"view_count,omitempty"`
 	UploadDate    string            `json:"upload_date,omitempty"`
 	ChannelName   string            `json:"channel_name,omitempty"`
-	ChannelID     string            `json:"channel_id,omitempty"`
+	ChannelID     string            `json:"-"`
 	Tags          []string          `json:"tags,omitempty"`
 	Captions      []CaptionTrack    `json:"captions,omitempty"`
-	AudioPath     string            `json:"audio_path,omitempty"`
+	AudioPath     string            `json:"-"`
 	SubtitlePaths map[string]string `json:"subtitle_paths,omitempty"`
 	PlaylistItems []PlaylistItem    `json:"playlist_items,omitempty"`
 	Processing    []ProcessingResult `json:"processing,omitempty"`

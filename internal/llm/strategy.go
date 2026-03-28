@@ -21,10 +21,11 @@ var keyPointsSchema = json.RawMessage(`{"type":"object","properties":{"key_point
 // This preserves narrative continuity across chunk boundaries.
 // For transcripts that fit in a single chunk, it falls back to a single call.
 func (o *OllamaClient) processRefine(ctx context.Context, req Request) (*Result, error) {
-	chunks := o.chunker.Chunk(req.Text)
+	numCtx := o.effectiveNumCtx(req)
+	chunks := o.effectiveChunker(req).Chunk(req.Text)
 
 	if len(chunks) == 1 {
-		raw, err := o.callWithRetry(ctx, promptSingleSummary(req.Title, req.Text), ollamaSchema(StyleSummary))
+		raw, err := o.callWithRetry(ctx, promptSingleSummary(req.Title, req.Text), ollamaSchema(StyleSummary), numCtx)
 		if err != nil {
 			return nil, err
 		}
@@ -33,7 +34,7 @@ func (o *OllamaClient) processRefine(ctx context.Context, req Request) (*Result,
 
 	// First chunk: build initial summary.
 	emitProgress(req.ProgressCh, ProgressEvent{Type: "chunk_start", Chunk: 1, Total: len(chunks), Style: StyleSummary})
-	raw, err := o.callWithRetry(ctx, promptSummaryInitial(req.Title, chunks[0]), ollamaSchema(StyleSummary))
+	raw, err := o.callWithRetry(ctx, promptSummaryInitial(req.Title, chunks[0]), ollamaSchema(StyleSummary), numCtx)
 	if err != nil {
 		return nil, fmt.Errorf("refine chunk 1: %w", err)
 	}
@@ -48,7 +49,7 @@ func (o *OllamaClient) processRefine(ctx context.Context, req Request) (*Result,
 	for i, chunk := range chunks[1:] {
 		chunkNum := i + 2
 		emitProgress(req.ProgressCh, ProgressEvent{Type: "chunk_start", Chunk: chunkNum, Total: len(chunks), Style: StyleSummary})
-		raw, err = o.callWithRetry(ctx, promptSummaryRefine(req.Title, capSummary(running, 150), chunk), ollamaSchema(StyleSummary))
+		raw, err = o.callWithRetry(ctx, promptSummaryRefine(req.Title, capSummary(running, 150), chunk), ollamaSchema(StyleSummary), numCtx)
 		if err != nil {
 			return nil, fmt.Errorf("refine chunk %d: %w", chunkNum, err)
 		}
@@ -71,10 +72,11 @@ func (o *OllamaClient) processRefine(ctx context.Context, req Request) (*Result,
 // reduced into a final deduplicated takeaways list.
 // For transcripts that fit in a single chunk, it falls back to a single call.
 func (o *OllamaClient) processMapReduce(ctx context.Context, req Request) (*Result, error) {
-	chunks := o.chunker.Chunk(req.Text)
+	numCtx := o.effectiveNumCtx(req)
+	chunks := o.effectiveChunker(req).Chunk(req.Text)
 
 	if len(chunks) == 1 {
-		raw, err := o.callWithRetry(ctx, promptSingleTakeaways(req.Title, req.Text), ollamaSchema(StyleTakeaways))
+		raw, err := o.callWithRetry(ctx, promptSingleTakeaways(req.Title, req.Text), ollamaSchema(StyleTakeaways), numCtx)
 		if err != nil {
 			return nil, err
 		}
@@ -87,7 +89,7 @@ func (o *OllamaClient) processMapReduce(ctx context.Context, req Request) (*Resu
 	for i, chunk := range chunks {
 		g.Go(func() error {
 			emitProgress(req.ProgressCh, ProgressEvent{Type: "chunk_start", Chunk: i + 1, Total: len(chunks), Style: StyleTakeaways})
-			raw, err := o.callWithRetry(gctx, promptTakeawaysMap(req.Title, chunk), keyPointsSchema)
+			raw, err := o.callWithRetry(gctx, promptTakeawaysMap(req.Title, chunk), keyPointsSchema, numCtx)
 			if err != nil {
 				return fmt.Errorf("map chunk %d: %w", i+1, err)
 			}
@@ -111,7 +113,7 @@ func (o *OllamaClient) processMapReduce(ctx context.Context, req Request) (*Resu
 
 	// Reduce: consolidate all points into final takeaways.
 	emitProgress(req.ProgressCh, ProgressEvent{Type: "reduce_start", Chunk: 0, Total: len(chunks), Style: StyleTakeaways})
-	raw, err := o.callWithRetry(ctx, promptTakeawaysReduce(req.Title, allPoints), ollamaSchema(StyleTakeaways))
+	raw, err := o.callWithRetry(ctx, promptTakeawaysReduce(req.Title, allPoints), ollamaSchema(StyleTakeaways), numCtx)
 	if err != nil {
 		return nil, fmt.Errorf("reduce: %w", err)
 	}

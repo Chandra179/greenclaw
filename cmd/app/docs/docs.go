@@ -111,6 +111,20 @@ const docTemplate = `{
                 "url"
             ],
             "properties": {
+                "num_ctx": {
+                    "type": "integer",
+                    "example": 8192
+                },
+                "styles": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "summary",
+                        "takeaways"
+                    ]
+                },
                 "url": {
                     "type": "string",
                     "example": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
@@ -137,22 +151,22 @@ const docTemplate = `{
         "store.ContentType": {
             "type": "string",
             "enum": [
+                "youtube_video",
+                "youtube_playlist",
+                "youtube_channel",
                 "html",
                 "json",
                 "xml",
-                "binary",
-                "youtube_video",
-                "youtube_playlist",
-                "youtube_channel"
+                "binary"
             ],
             "x-enum-varnames": [
+                "ContentYouTubeVideo",
+                "ContentYouTubePlaylist",
+                "ContentYouTubeChannel",
                 "ContentHTML",
                 "ContentJSON",
                 "ContentXML",
-                "ContentBinary",
-                "ContentYouTubeVideo",
-                "ContentYouTubePlaylist",
-                "ContentYouTubeChannel"
+                "ContentBinary"
             ]
         },
         "store.PlaylistItem": {
@@ -196,18 +210,23 @@ const docTemplate = `{
                 "fetched_at": {
                     "type": "string"
                 },
-                "file_path": {
-                    "description": "for binary downloads",
-                    "type": "string"
-                },
                 "links": {
                     "type": "array",
                     "items": {
                         "type": "string"
                     }
                 },
-                "text": {
+                "model": {
                     "type": "string"
+                },
+                "num_ctx": {
+                    "type": "integer"
+                },
+                "styles": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "title": {
                     "type": "string"
@@ -223,17 +242,11 @@ const docTemplate = `{
         "store.YouTubeData": {
             "type": "object",
             "properties": {
-                "audio_path": {
-                    "type": "string"
-                },
                 "captions": {
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/store.CaptionTrack"
                     }
-                },
-                "channel_id": {
-                    "type": "string"
                 },
                 "channel_name": {
                     "type": "string"

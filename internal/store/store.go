@@ -19,12 +19,15 @@ type Result struct {
 	ContentType ContentType `json:"content_type"`
 	Title       string      `json:"title,omitempty"`
 	Description string      `json:"description,omitempty"`
-	Text        string      `json:"text,omitempty"`
+	Text        string      `json:"-"`
 	Links       []string    `json:"links,omitempty"`
-	FilePath    string       `json:"file_path,omitempty"` // for binary downloads
+	FilePath    string      `json:"-"` // for binary downloads
 	YouTube     *YouTubeData `json:"youtube,omitempty"`
 	Error       string       `json:"error,omitempty"`
 	FetchedAt   time.Time   `json:"fetched_at"`
+	Model       string      `json:"model,omitempty"`
+	NumCtx      int         `json:"num_ctx,omitempty"`
+	Styles      []string    `json:"styles,omitempty"`
 }
 
 type Store struct {

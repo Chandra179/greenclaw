@@ -14,14 +14,56 @@ make docker-build
 make docker-run
 curl -X POST http://localhost:8080/extract \
   -H 'Content-Type: application/json' \
-  -d '{"url": "https://www.youtube.com/watch?v=bufMa2Oscok"}'
+  -d '{"url": "https://www.youtube.com/watch?v=bufMa2Oscok",}'
 
 curl -X 'POST' \
   'http://localhost:8080/extract/stream' \
   -H 'accept: text/event-stream' \
   -H 'Content-Type: application/json' \
   -d '{
-  "url": "https://www.youtube.com/watch?v=het9HFqo1TQ"
+  "url": "https://www.youtube.com/watch?v=het9HFqo1TQ", "num_ctx": 8192
+}'
+
+curl -X 'POST' \
+  'http://localhost:8080/extract/stream' \
+  -H 'accept: text/event-stream' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "url": "https://www.youtube.com/watch?v=het9HFqo1TQ", "num_ctx": 4096
+}'
+
+curl -X 'POST' \
+  'http://localhost:8080/extract/stream' \
+  -H 'accept: text/event-stream' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "url": "https://www.youtube.com/watch?v=het9HFqo1TQ", "num_ctx": 4096, "styles": ["takeaways"]  
+}'
+
+curl -X 'POST' \
+  'http://localhost:8080/extract/stream' \
+  -H 'accept: text/event-stream' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "url": "https://www.youtube.com/watch?v=het9HFqo1TQ", "num_ctx": 8192, "styles": ["takeaways"]  
+}'
+
+
+curl -X 'POST' \
+  'http://localhost:8080/extract/stream' \
+  -H 'accept: text/event-stream' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "url": "https://www.youtube.com/watch?v=het9HFqo1TQ", "num_ctx": 8192, "styles": ["summary"]  
+}'
+
+
+curl -X 'POST' \
+  'http://localhost:8080/extract/stream' \
+  -H 'accept: text/event-stream' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "url": "https://www.youtube.com/watch?v=het9HFqo1TQ", "num_ctx": 8192, "styles": ["summary","takeaways"]  
 }'
 ```
 

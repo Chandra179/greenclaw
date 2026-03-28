@@ -17,9 +17,10 @@ const (
 type Request struct {
 	Style      ProcessingStyle
 	Title      string
-	Text       string           // plain-text transcript
-	CacheKey   string           // optional; when set, enables file-based result caching
+	Text       string              // plain-text transcript
+	CacheKey   string              // optional; when set, enables file-based result caching
 	ProgressCh chan<- ProgressEvent // optional; nil = no progress reporting
+	NumCtx     int                 // optional; overrides the client's default context window size
 }
 
 // Result is the style-agnostic envelope returned by Process.

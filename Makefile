@@ -14,11 +14,13 @@ test:
 clean:
 	rm -f $(BIN)
 
-docker-build:
+br:
+	swag init -g cmd/app/main.go -o cmd/app/docs
 	docker compose build
-
-docker-run:
 	docker compose up
+
+r:
+	docker compose up -d
 	
 g:
 	nvidia-smi -l 1

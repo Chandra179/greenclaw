@@ -30,6 +30,7 @@ type PipelineConfig struct {
 	YTDLOptions        ytdl.Options
 	ProcessingStyles   []llms.ProcessingStyle
 	ProgressCh         chan<- llms.ProgressEvent // optional; nil = no streaming
+	NumCtx             int                       // optional; overrides LLM context window size for this request
 }
 
 // Process handles a YouTube URL based on its type (video, playlist, channel).
@@ -117,6 +118,7 @@ func processVideo(ctx context.Context, client *Client, cfg PipelineConfig, t tra
 				Text:       result.Text,
 				CacheKey:   videoID,
 				ProgressCh: cfg.ProgressCh,
+				NumCtx:     cfg.NumCtx,
 			})
 			if err != nil {
 				log.Printf("[youtube] processing style %s failed for %s: %v", style, videoID, err)
