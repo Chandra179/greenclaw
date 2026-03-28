@@ -25,9 +25,11 @@ youtube:
 llm:
   endpoint: http://host.docker.internal:11434
   model: phi4-mini:latest
-  timeout: 120s
-  processing_styles: [summary, takeaways]
+  timeout: 1200s
+  processing_styles: [summary]
   num_ctx: 4096
+  overlap_tokens: 70  # tokens carried across chunk boundaries (~800 chars)
+  cache_dir: cache/llm  # directory for result cache; remove or set to "" to disable
 
 transcriber:
   endpoint: http://host.docker.internal:9000

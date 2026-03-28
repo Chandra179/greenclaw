@@ -1,7 +1,5 @@
 package store
 
-import "encoding/json"
-
 const (
 	ContentYouTubeVideo    ContentType = "youtube_video"
 	ContentYouTubePlaylist ContentType = "youtube_playlist"
@@ -26,8 +24,8 @@ type YouTubeData struct {
 
 // ProcessingResult holds the output of a single LLM processing style.
 type ProcessingResult struct {
-	Style   string          `json:"style"`
-	Content json.RawMessage `json:"content"`
+	Style   string `json:"style"`
+	Content any    `json:"content" swaggertype:"object"` // LLM-generated JSON, shape varies by style
 }
 
 // CaptionTrack represents a single caption/subtitle track.

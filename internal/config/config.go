@@ -62,6 +62,8 @@ type LLMConfig struct {
 	Timeout          string   `yaml:"timeout"`           // default: 60s
 	ProcessingStyles []string `yaml:"processing_styles"` // e.g. ["summary", "takeaways"]
 	NumCtx           int      `yaml:"num_ctx"`           // context window size (default: 8192)
+	OverlapTokens    int      `yaml:"overlap_tokens"`    // tokens carried across chunk boundaries (default: 200)
+	CacheDir         string   `yaml:"cache_dir"`         // directory for file-based result cache; "" disables caching
 }
 
 func Default() Config {
@@ -86,10 +88,11 @@ func Default() Config {
 			Language: "",
 		},
 		LLM: LLMConfig{
-			Endpoint: "http://localhost:11434",
-			Model:    "llama3.2",
-			Timeout:  "60s",
-			NumCtx:   8192,
+			Endpoint:      "http://localhost:11434",
+			Model:         "llama3.2",
+			Timeout:       "60s",
+			NumCtx:        8192,
+			OverlapTokens: 200,
 		},
 	}
 }

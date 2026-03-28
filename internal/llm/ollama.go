@@ -6,36 +6,127 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
 )
+
+const maxAttempts = 2
 
 // OllamaClient talks to an Ollama instance for LLM processing.
 type OllamaClient struct {
 	endpoint string
 	model    string
 	numCtx   int
+	chunker  Chunker
 	client   *http.Client
+	cache    *ResultCache
 }
 
 // NewOllamaClient creates a client for the given Ollama endpoint and model.
-func NewOllamaClient(endpoint, model string, timeout time.Duration, numCtx int) *OllamaClient {
+// overlapTokens controls how many tokens of context are repeated across chunk
+// boundaries; pass 0 to use the default (200 tokens).
+// cacheDir is the directory for the file-based result cache; pass "" to disable.
+func NewOllamaClient(endpoint, model string, timeout time.Duration, numCtx, overlapTokens int, cacheDir string) *OllamaClient {
+	const (
+		charsPerToken  = 4
+		reservedTokens = 1000
+		defaultOverlap = 200
+	)
+	chunkSize := (numCtx - reservedTokens) * charsPerToken
+	if chunkSize <= 0 {
+		chunkSize = charsPerToken * 100
+	}
+	overlap := overlapTokens
+	if overlap <= 0 {
+		overlap = defaultOverlap
+	}
+
+	var cache *ResultCache
+	if cacheDir != "" {
+		var err error
+		cache, err = NewResultCache(cacheDir)
+		if err != nil {
+			log.Printf("[llm] cache unavailable (%s): %v", cacheDir, err)
+		}
+	}
+
 	return &OllamaClient{
 		endpoint: strings.TrimRight(endpoint, "/"),
 		model:    model,
 		numCtx:   numCtx,
+		chunker:  RecursiveChunker{ChunkSize: chunkSize, Overlap: overlap * charsPerToken},
 		client:   &http.Client{Timeout: timeout},
+		cache:    cache,
 	}
 }
 
+// Process implements Client. It checks the file cache first, then dispatches to a
+// style-appropriate multi-step strategy. Results are stored in the cache on success.
 func (o *OllamaClient) Process(ctx context.Context, req Request) (*Result, error) {
-	prompt := buildPrompt(req)
+	if o.cache != nil && req.CacheKey != "" {
+		if r, ok := o.cache.Get(req.CacheKey, string(req.Style), o.model, o.numCtx); ok {
+			log.Printf("[llm] cache hit %s/%s", req.CacheKey, req.Style)
+			return r, nil
+		}
+	}
 
+	var (
+		result *Result
+		err    error
+	)
+	switch req.Style {
+	case StyleSummary:
+		result, err = o.processRefine(ctx, req)
+	case StyleTakeaways:
+		result, err = o.processMapReduce(ctx, req)
+	default:
+		var raw json.RawMessage
+		raw, err = o.callWithRetry(ctx, buildDefaultPrompt(req), nil)
+		if err == nil {
+			result = &Result{Style: req.Style, Content: raw}
+		}
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	if o.cache != nil && req.CacheKey != "" {
+		if writeErr := o.cache.Put(req.CacheKey, string(req.Style), o.model, o.numCtx, result); writeErr != nil {
+			log.Printf("[llm] cache write failed: %v", writeErr)
+		}
+	}
+
+	return result, nil
+}
+
+// callWithRetry calls attempt up to maxAttempts times, logging transient errors.
+func (o *OllamaClient) callWithRetry(ctx context.Context, prompt string, format json.RawMessage) (json.RawMessage, error) {
+	if format == nil {
+		format = json.RawMessage(`"json"`)
+	}
+	var lastErr error
+	for attempt := range maxAttempts {
+		raw, err := o.attempt(ctx, prompt, format)
+		if err == nil {
+			return raw, nil
+		}
+		lastErr = err
+		if attempt < maxAttempts-1 {
+			log.Printf("[llm] attempt %d failed, retrying: %v", attempt+1, err)
+		}
+	}
+	return nil, lastErr
+}
+
+// attempt makes a single HTTP request to Ollama and returns the raw JSON response text.
+func (o *OllamaClient) attempt(ctx context.Context, prompt string, format json.RawMessage) (json.RawMessage, error) {
 	body, err := json.Marshal(ollamaRequest{
 		Model:   o.model,
 		Prompt:  prompt,
-		Format:  "json",
+		Format:  format,
 		Stream:  false,
 		Options: ollamaOptions{NumCtx: o.numCtx},
 	})
@@ -65,16 +156,18 @@ func (o *OllamaClient) Process(ctx context.Context, req Request) (*Result, error
 		return nil, fmt.Errorf("decode ollama response: %w", err)
 	}
 
-	// Validate the response is valid JSON
-	raw := json.RawMessage(ollamaResp.Response)
-	if !json.Valid(raw) {
-		return nil, fmt.Errorf("ollama returned invalid JSON: %.200s", ollamaResp.Response)
-	}
+	return json.RawMessage(ollamaResp.Response), nil
+}
 
-	return &Result{
-		Style:   req.Style,
-		Content: raw,
-	}, nil
+func buildDefaultPrompt(req Request) string {
+	return fmt.Sprintf(`Process the following transcript.
+
+Video title: %s
+
+Transcript:
+%s
+
+Respond with valid JSON.`, req.Title, req.Text)
 }
 
 type ollamaOptions struct {
@@ -82,52 +175,13 @@ type ollamaOptions struct {
 }
 
 type ollamaRequest struct {
-	Model   string        `json:"model"`
-	Prompt  string        `json:"prompt"`
-	Format  string        `json:"format"`
-	Stream  bool          `json:"stream"`
-	Options ollamaOptions `json:"options"`
+	Model   string          `json:"model"`
+	Prompt  string          `json:"prompt"`
+	Format  json.RawMessage `json:"format"`
+	Stream  bool            `json:"stream"`
+	Options ollamaOptions   `json:"options"`
 }
 
 type ollamaResponse struct {
 	Response string `json:"response"`
-}
-
-func buildPrompt(req Request) string {
-	switch req.Style {
-	case StyleSummary:
-		return fmt.Sprintf(`Summarize the following YouTube video transcript in one or two concise paragraphs.
-
-Video title: %s
-Duration: %s
-
-Transcript:
-%s
-
-Respond with JSON in this exact format:
-{"summary": "your summary here"}`, req.Title, req.Duration, req.Text)
-
-	case StyleTakeaways:
-		return fmt.Sprintf(`Extract the key takeaways from the following YouTube video transcript. Return up to 10 bullet points ordered by importance.
-
-Video title: %s
-Duration: %s
-
-Transcript:
-%s
-
-Respond with JSON in this exact format:
-{"takeaways": [{"text": "takeaway 1"}, {"text": "takeaway 2"}]}`, req.Title, req.Duration, req.Text)
-
-	default:
-		return fmt.Sprintf(`Process the following transcript.
-
-Video title: %s
-Duration: %s
-
-Transcript:
-%s
-
-Respond with valid JSON.`, req.Title, req.Duration, req.Text)
-	}
 }

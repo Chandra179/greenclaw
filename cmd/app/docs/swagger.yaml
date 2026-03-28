@@ -1,0 +1,187 @@
+basePath: /
+definitions:
+  server.errorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  server.extractRequest:
+    properties:
+      url:
+        example: https://www.youtube.com/watch?v=dQw4w9WgXcQ
+        type: string
+    required:
+    - url
+    type: object
+  store.CaptionTrack:
+    properties:
+      auto_generated:
+        type: boolean
+      language:
+        type: string
+      language_code:
+        type: string
+      text:
+        type: string
+    type: object
+  store.ContentType:
+    enum:
+    - html
+    - json
+    - xml
+    - binary
+    - youtube_video
+    - youtube_playlist
+    - youtube_channel
+    type: string
+    x-enum-varnames:
+    - ContentHTML
+    - ContentJSON
+    - ContentXML
+    - ContentBinary
+    - ContentYouTubeVideo
+    - ContentYouTubePlaylist
+    - ContentYouTubeChannel
+  store.PlaylistItem:
+    properties:
+      index:
+        type: integer
+      title:
+        type: string
+      video_id:
+        type: string
+    type: object
+  store.ProcessingResult:
+    properties:
+      content:
+        description: LLM-generated JSON, shape varies by style
+        type: object
+      style:
+        type: string
+    type: object
+  store.Result:
+    properties:
+      content_type:
+        $ref: '#/definitions/store.ContentType'
+      description:
+        type: string
+      error:
+        type: string
+      fetched_at:
+        type: string
+      file_path:
+        description: for binary downloads
+        type: string
+      links:
+        items:
+          type: string
+        type: array
+      text:
+        type: string
+      title:
+        type: string
+      url:
+        type: string
+      youtube:
+        $ref: '#/definitions/store.YouTubeData'
+    type: object
+  store.YouTubeData:
+    properties:
+      audio_path:
+        type: string
+      captions:
+        items:
+          $ref: '#/definitions/store.CaptionTrack'
+        type: array
+      channel_id:
+        type: string
+      channel_name:
+        type: string
+      duration:
+        type: string
+      playlist_items:
+        items:
+          $ref: '#/definitions/store.PlaylistItem'
+        type: array
+      processing:
+        items:
+          $ref: '#/definitions/store.ProcessingResult'
+        type: array
+      subtitle_paths:
+        additionalProperties:
+          type: string
+        type: object
+      tags:
+        items:
+          type: string
+        type: array
+      upload_date:
+        type: string
+      video_id:
+        type: string
+      view_count:
+        type: integer
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: Detect-first, escalate-later web scraper with LLM processing.
+  title: Greenclaw API
+  version: "1.0"
+paths:
+  /extract:
+    post:
+      consumes:
+      - application/json
+      description: Scrapes the given URL and returns structured content. For YouTube
+        URLs, also returns transcript and LLM processing results.
+      parameters:
+      - description: URL to extract
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/server.extractRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/store.Result'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/server.errorResponse'
+      summary: Extract content from a URL
+      tags:
+      - extract
+  /extract/stream:
+    post:
+      consumes:
+      - application/json
+      description: Same as /extract but streams chunk-level progress events via Server-Sent
+        Events while the LLM processes the transcript. Final result is sent as an
+        "result" event.
+      parameters:
+      - description: URL to extract
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/server.extractRequest'
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/store.Result'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/server.errorResponse'
+      summary: Extract content from a URL with SSE progress streaming
+      tags:
+      - extract
+swagger: "2.0"

@@ -15,10 +15,11 @@ const (
 
 // Request bundles everything the processor needs for any style.
 type Request struct {
-	Style    ProcessingStyle
-	Title    string
-	Duration string // "MM:SS"
-	Text     string // plain-text transcript
+	Style      ProcessingStyle
+	Title      string
+	Text       string           // plain-text transcript
+	CacheKey   string           // optional; when set, enables file-based result caching
+	ProgressCh chan<- ProgressEvent // optional; nil = no progress reporting
 }
 
 // Result is the style-agnostic envelope returned by Process.

@@ -15,6 +15,14 @@ make docker-run
 curl -X POST http://localhost:8080/extract \
   -H 'Content-Type: application/json' \
   -d '{"url": "https://www.youtube.com/watch?v=bufMa2Oscok"}'
+
+curl -X 'POST' \
+  'http://localhost:8080/extract/stream' \
+  -H 'accept: text/event-stream' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "url": "https://www.youtube.com/watch?v=het9HFqo1TQ"
+}'
 ```
 
 ---
