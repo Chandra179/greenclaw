@@ -54,12 +54,8 @@ func TestProcessSummary(t *testing.T) {
 		t.Errorf("style = %q, want %q", result.Style, StyleSummary)
 	}
 
-	var v SummaryResponse
-	if err := json.Unmarshal(result.Content, &v); err != nil {
-		t.Fatalf("unmarshal content: %v", err)
-	}
-	if v.Summary == "" {
-		t.Error("summary is empty")
+	if len(result.Content) != 1 || result.Content[0] == "" {
+		t.Errorf("expected one non-empty summary, got %v", result.Content)
 	}
 }
 
@@ -77,12 +73,8 @@ func TestProcessTakeaways(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	var v TakeawaysResponse
-	if err := json.Unmarshal(result.Content, &v); err != nil {
-		t.Fatalf("unmarshal content: %v", err)
-	}
-	if len(v.Takeaways) != 2 {
-		t.Errorf("takeaways count = %d, want 2", len(v.Takeaways))
+	if len(result.Content) != 2 {
+		t.Errorf("takeaways count = %d, want 2", len(result.Content))
 	}
 }
 
@@ -111,12 +103,8 @@ func TestProcessSummaryMultiChunk(t *testing.T) {
 		t.Errorf("LLM calls = %d, want 2", calls.Load())
 	}
 
-	var v SummaryResponse
-	if err := json.Unmarshal(result.Content, &v); err != nil {
-		t.Fatalf("unmarshal: %v", err)
-	}
-	if v.Summary != "refined summary" {
-		t.Errorf("summary = %q, want %q", v.Summary, "refined summary")
+	if len(result.Content) != 1 || result.Content[0] != "refined summary" {
+		t.Errorf("content = %v, want [\"refined summary\"]", result.Content)
 	}
 }
 
@@ -144,12 +132,8 @@ func TestProcessTakeawaysMultiChunk(t *testing.T) {
 		t.Errorf("LLM calls = %d, want 3", calls.Load())
 	}
 
-	var v TakeawaysResponse
-	if err := json.Unmarshal(result.Content, &v); err != nil {
-		t.Fatalf("unmarshal: %v", err)
-	}
-	if len(v.Takeaways) != 1 || v.Takeaways[0].Text != "final point" {
-		t.Errorf("unexpected takeaways: %+v", v.Takeaways)
+	if len(result.Content) != 1 || result.Content[0] != "final point" {
+		t.Errorf("content = %v, want [\"final point\"]", result.Content)
 	}
 }
 

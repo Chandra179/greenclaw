@@ -16,6 +16,7 @@ import (
 	"greenclaw/internal/llm"
 	"greenclaw/internal/pipeline"
 	"greenclaw/internal/router"
+	"greenclaw/internal/store"
 )
 
 var validStyles = map[string]bool{
@@ -55,6 +56,57 @@ func saveResult(url, model string, numCtx int, data json.RawMessage) {
 	log.Printf("[results] saved %s", name)
 }
 
+// httpResult is the HTTP response shape — flat for YouTube videos.
+// Internal fields (text, file_path, channel_id, audio_path) are omitted;
+// YouTube sub-fields are promoted to the top level.
+type httpResult struct {
+	URL          string            `json:"url"`
+	ContentType  store.ContentType `json:"content_type"`
+	VideoID      string            `json:"video_id,omitempty"`
+	Title        string            `json:"title,omitempty"`
+	Description  string            `json:"description,omitempty"`
+	Duration     string            `json:"duration,omitempty"`
+	ChannelName  string            `json:"channel_name,omitempty"`
+	LanguageCode string            `json:"language_code,omitempty"`
+	Style        string            `json:"style,omitempty"`
+	Content      []string          `json:"content,omitempty"`
+	Links        []string          `json:"links,omitempty"`
+	Error        string            `json:"error,omitempty"`
+	FetchedAt    any               `json:"fetched_at"`
+	Model        string            `json:"model,omitempty"`
+	NumCtx       int               `json:"num_ctx,omitempty"`
+	Styles       []string          `json:"styles,omitempty"`
+}
+
+// toHTTPResult converts a full Result to the flat HTTP response shape.
+func toHTTPResult(r *store.Result) httpResult {
+	h := httpResult{
+		URL:         r.URL,
+		ContentType: r.ContentType,
+		Title:       r.Title,
+		Description: r.Description,
+		Links:       r.Links,
+		Error:       r.Error,
+		FetchedAt:   r.FetchedAt,
+		Model:       r.Model,
+		NumCtx:      r.NumCtx,
+		Styles:      r.Styles,
+	}
+	if r.YouTube != nil {
+		h.VideoID = r.YouTube.VideoID
+		h.Duration = r.YouTube.Duration
+		h.ChannelName = r.YouTube.ChannelName
+		if len(r.YouTube.Captions) > 0 {
+			h.LanguageCode = r.YouTube.Captions[0].LanguageCode
+		}
+		if len(r.YouTube.Processing) > 0 {
+			h.Style = r.YouTube.Processing[0].Style
+			h.Content = r.YouTube.Processing[0].Content
+		}
+	}
+	return h
+}
+
 type extractRequest struct {
 	URL    string   `json:"url" binding:"required" example:"https://www.youtube.com/watch?v=dQw4w9WgXcQ"`
 	NumCtx int      `json:"num_ctx,omitempty" example:"8192"`
@@ -72,7 +124,7 @@ type errorResponse struct {
 // @Accept       json
 // @Produce      json
 // @Param        body  body      extractRequest  true  "URL to extract"
-// @Success      200   {object}  store.Result
+// @Success      200   {object}  httpResult
 // @Failure      400   {object}  errorResponse
 // @Router       /extract [post]
 func handleExtract(s *pipeline.Pipeline, model string, defaultNumCtx int) gin.HandlerFunc {
@@ -103,7 +155,7 @@ func handleExtract(s *pipeline.Pipeline, model string, defaultNumCtx int) gin.Ha
 		result.NumCtx = effectiveNumCtx
 		result.Styles = req.Styles
 
-		c.JSON(http.StatusOK, result)
+		c.JSON(http.StatusOK, toHTTPResult(result))
 
 		if data, err := json.Marshal(result); err == nil {
 			saveResult(req.URL, model, effectiveNumCtx, data)
@@ -118,7 +170,7 @@ func handleExtract(s *pipeline.Pipeline, model string, defaultNumCtx int) gin.Ha
 // @Accept       json
 // @Produce      text/event-stream
 // @Param        body  body      extractRequest  true  "URL to extract"
-// @Success      200   {object}  store.Result
+// @Success      200   {object}  httpResult
 // @Failure      400   {object}  errorResponse
 // @Router       /extract/stream [post]
 func handleExtractStream(s *pipeline.Pipeline, model string, defaultNumCtx int) gin.HandlerFunc {
@@ -142,7 +194,7 @@ func handleExtractStream(s *pipeline.Pipeline, model string, defaultNumCtx int) 
 		c.Header("Connection", "keep-alive")
 		c.Header("X-Accel-Buffering", "no") // disable nginx proxy buffering
 
-		resultCh := make(chan json.RawMessage, 1)
+		resultCh := make(chan *store.Result, 1)
 		errCh := make(chan error, 1)
 
 		effectiveNumCtx := req.NumCtx
@@ -160,8 +212,7 @@ func handleExtractStream(s *pipeline.Pipeline, model string, defaultNumCtx int) 
 			r.Model = model
 			r.NumCtx = effectiveNumCtx
 			r.Styles = req.Styles
-			data, _ := json.Marshal(r)
-			resultCh <- data
+			resultCh <- r
 		}()
 
 		flusher, _ := c.Writer.(http.Flusher)
@@ -175,9 +226,12 @@ func handleExtractStream(s *pipeline.Pipeline, model string, defaultNumCtx int) 
 		}
 
 		select {
-		case data := <-resultCh:
-			fmt.Fprintf(c.Writer, "event: result\ndata: %s\n\n", data)
-			saveResult(req.URL, model, effectiveNumCtx, data)
+		case r := <-resultCh:
+			httpData, _ := json.Marshal(toHTTPResult(r))
+			fmt.Fprintf(c.Writer, "event: result\ndata: %s\n\n", httpData)
+			if saveData, err := json.Marshal(r); err == nil {
+				saveResult(req.URL, model, effectiveNumCtx, saveData)
+			}
 		case err := <-errCh:
 			data, _ := json.Marshal(errorResponse{Error: err.Error()})
 			fmt.Fprintf(c.Writer, "event: error\ndata: %s\n\n", data)

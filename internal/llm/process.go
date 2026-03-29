@@ -1,9 +1,6 @@
 package llm
 
-import (
-	"context"
-	"encoding/json"
-)
+import "context"
 
 // ProcessingStyle is a named post-processing mode.
 type ProcessingStyle string
@@ -24,9 +21,10 @@ type Request struct {
 }
 
 // Result is the style-agnostic envelope returned by Process.
+// Content is always a []string: one element for summary, multiple for takeaways.
 type Result struct {
 	Style   ProcessingStyle `json:"style"`
-	Content json.RawMessage `json:"content"`
+	Content []string        `json:"content"`
 }
 
 // Client is the interface all LLM backends implement.

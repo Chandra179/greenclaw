@@ -29,7 +29,11 @@ func (o *OllamaClient) processRefine(ctx context.Context, req Request) (*Result,
 		if err != nil {
 			return nil, err
 		}
-		return &Result{Style: StyleSummary, Content: raw}, nil
+		s, err := extractSummary(raw)
+		if err != nil {
+			return nil, err
+		}
+		return &Result{Style: StyleSummary, Content: []string{s}}, nil
 	}
 
 	// First chunk: build initial summary.
@@ -60,11 +64,7 @@ func (o *OllamaClient) processRefine(ctx context.Context, req Request) (*Result,
 		}
 	}
 
-	content, err := json.Marshal(SummaryResponse{Summary: running})
-	if err != nil {
-		return nil, fmt.Errorf("marshal final summary: %w", err)
-	}
-	return &Result{Style: StyleSummary, Content: content}, nil
+	return &Result{Style: StyleSummary, Content: []string{running}}, nil
 }
 
 // processMapReduce extracts takeaways with a map-reduce strategy.
@@ -80,7 +80,11 @@ func (o *OllamaClient) processMapReduce(ctx context.Context, req Request) (*Resu
 		if err != nil {
 			return nil, err
 		}
-		return &Result{Style: StyleTakeaways, Content: raw}, nil
+		pts, err := extractTakeaways(raw)
+		if err != nil {
+			return nil, err
+		}
+		return &Result{Style: StyleTakeaways, Content: pts}, nil
 	}
 
 	// Map: extract key points from each chunk concurrently.
@@ -118,7 +122,11 @@ func (o *OllamaClient) processMapReduce(ctx context.Context, req Request) (*Resu
 		return nil, fmt.Errorf("reduce: %w", err)
 	}
 	emitProgress(req.ProgressCh, ProgressEvent{Type: "reduce_done", Chunk: 0, Total: len(chunks), Style: StyleTakeaways})
-	return &Result{Style: StyleTakeaways, Content: raw}, nil
+	pts, err := extractTakeaways(raw)
+	if err != nil {
+		return nil, fmt.Errorf("reduce: %w", err)
+	}
+	return &Result{Style: StyleTakeaways, Content: pts}, nil
 }
 
 // capSummary truncates s to at most maxWords words, appending "..." if truncated.
@@ -224,4 +232,16 @@ func extractKeyPoints(raw json.RawMessage) ([]string, error) {
 		return nil, fmt.Errorf("parse key points response: %w", err)
 	}
 	return k.KeyPoints, nil
+}
+
+func extractTakeaways(raw json.RawMessage) ([]string, error) {
+	var resp TakeawaysResponse
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return nil, fmt.Errorf("parse takeaways response: %w", err)
+	}
+	out := make([]string, len(resp.Takeaways))
+	for i, t := range resp.Takeaways {
+		out[i] = t.Text
+	}
+	return out, nil
 }

@@ -109,7 +109,7 @@ func (o *OllamaClient) Process(ctx context.Context, req Request) (*Result, error
 		var raw json.RawMessage
 		raw, err = o.callWithRetry(ctx, buildDefaultPrompt(req), nil, numCtx)
 		if err == nil {
-			result = &Result{Style: req.Style, Content: raw}
+			result = &Result{Style: req.Style, Content: []string{string(raw)}}
 		}
 	}
 

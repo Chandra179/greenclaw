@@ -23,61 +23,24 @@ definitions:
     required:
     - url
     type: object
-  store.CaptionTrack:
+  server.httpResult:
     properties:
-      auto_generated:
-        type: boolean
-      language:
+      channel_name:
         type: string
-      language_code:
-        type: string
-      text:
-        type: string
-    type: object
-  store.ContentType:
-    enum:
-    - youtube_video
-    - youtube_playlist
-    - youtube_channel
-    - html
-    - json
-    - xml
-    - binary
-    type: string
-    x-enum-varnames:
-    - ContentYouTubeVideo
-    - ContentYouTubePlaylist
-    - ContentYouTubeChannel
-    - ContentHTML
-    - ContentJSON
-    - ContentXML
-    - ContentBinary
-  store.PlaylistItem:
-    properties:
-      index:
-        type: integer
-      title:
-        type: string
-      video_id:
-        type: string
-    type: object
-  store.ProcessingResult:
-    properties:
       content:
-        description: LLM-generated JSON, shape varies by style
-        type: object
-      style:
-        type: string
-    type: object
-  store.Result:
-    properties:
+        items:
+          type: string
+        type: array
       content_type:
         $ref: '#/definitions/store.ContentType'
       description:
         type: string
+      duration:
+        type: string
       error:
         type: string
-      fetched_at:
+      fetched_at: {}
+      language_code:
         type: string
       links:
         items:
@@ -87,6 +50,8 @@ definitions:
         type: string
       num_ctx:
         type: integer
+      style:
+        type: string
       styles:
         items:
           type: string
@@ -95,42 +60,27 @@ definitions:
         type: string
       url:
         type: string
-      youtube:
-        $ref: '#/definitions/store.YouTubeData'
-    type: object
-  store.YouTubeData:
-    properties:
-      captions:
-        items:
-          $ref: '#/definitions/store.CaptionTrack'
-        type: array
-      channel_name:
-        type: string
-      duration:
-        type: string
-      playlist_items:
-        items:
-          $ref: '#/definitions/store.PlaylistItem'
-        type: array
-      processing:
-        items:
-          $ref: '#/definitions/store.ProcessingResult'
-        type: array
-      subtitle_paths:
-        additionalProperties:
-          type: string
-        type: object
-      tags:
-        items:
-          type: string
-        type: array
-      upload_date:
-        type: string
       video_id:
         type: string
-      view_count:
-        type: integer
     type: object
+  store.ContentType:
+    enum:
+    - html
+    - json
+    - xml
+    - binary
+    - youtube_video
+    - youtube_playlist
+    - youtube_channel
+    type: string
+    x-enum-varnames:
+    - ContentHTML
+    - ContentJSON
+    - ContentXML
+    - ContentBinary
+    - ContentYouTubeVideo
+    - ContentYouTubePlaylist
+    - ContentYouTubeChannel
 host: localhost:8080
 info:
   contact: {}
@@ -157,7 +107,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/store.Result'
+            $ref: '#/definitions/server.httpResult'
         "400":
           description: Bad Request
           schema:
@@ -185,7 +135,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/store.Result'
+            $ref: '#/definitions/server.httpResult'
         "400":
           description: Bad Request
           schema:

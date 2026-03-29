@@ -43,7 +43,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/store.Result"
+                            "$ref": "#/definitions/server.httpResult"
                         }
                     },
                     "400": {
@@ -83,7 +83,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/store.Result"
+                            "$ref": "#/definitions/server.httpResult"
                         }
                     },
                     "400": {
@@ -131,83 +131,32 @@ const docTemplate = `{
                 }
             }
         },
-        "store.CaptionTrack": {
+        "server.httpResult": {
             "type": "object",
             "properties": {
-                "auto_generated": {
-                    "type": "boolean"
-                },
-                "language": {
+                "channel_name": {
                     "type": "string"
                 },
-                "language_code": {
-                    "type": "string"
-                },
-                "text": {
-                    "type": "string"
-                }
-            }
-        },
-        "store.ContentType": {
-            "type": "string",
-            "enum": [
-                "youtube_video",
-                "youtube_playlist",
-                "youtube_channel",
-                "html",
-                "json",
-                "xml",
-                "binary"
-            ],
-            "x-enum-varnames": [
-                "ContentYouTubeVideo",
-                "ContentYouTubePlaylist",
-                "ContentYouTubeChannel",
-                "ContentHTML",
-                "ContentJSON",
-                "ContentXML",
-                "ContentBinary"
-            ]
-        },
-        "store.PlaylistItem": {
-            "type": "object",
-            "properties": {
-                "index": {
-                    "type": "integer"
-                },
-                "title": {
-                    "type": "string"
-                },
-                "video_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "store.ProcessingResult": {
-            "type": "object",
-            "properties": {
                 "content": {
-                    "description": "LLM-generated JSON, shape varies by style",
-                    "type": "object"
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
-                "style": {
-                    "type": "string"
-                }
-            }
-        },
-        "store.Result": {
-            "type": "object",
-            "properties": {
                 "content_type": {
                     "$ref": "#/definitions/store.ContentType"
                 },
                 "description": {
                     "type": "string"
                 },
+                "duration": {
+                    "type": "string"
+                },
                 "error": {
                     "type": "string"
                 },
-                "fetched_at": {
+                "fetched_at": {},
+                "language_code": {
                     "type": "string"
                 },
                 "links": {
@@ -222,6 +171,9 @@ const docTemplate = `{
                 "num_ctx": {
                     "type": "integer"
                 },
+                "style": {
+                    "type": "string"
+                },
                 "styles": {
                     "type": "array",
                     "items": {
@@ -234,60 +186,31 @@ const docTemplate = `{
                 "url": {
                     "type": "string"
                 },
-                "youtube": {
-                    "$ref": "#/definitions/store.YouTubeData"
+                "video_id": {
+                    "type": "string"
                 }
             }
         },
-        "store.YouTubeData": {
-            "type": "object",
-            "properties": {
-                "captions": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/store.CaptionTrack"
-                    }
-                },
-                "channel_name": {
-                    "type": "string"
-                },
-                "duration": {
-                    "type": "string"
-                },
-                "playlist_items": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/store.PlaylistItem"
-                    }
-                },
-                "processing": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/store.ProcessingResult"
-                    }
-                },
-                "subtitle_paths": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
-                },
-                "tags": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "upload_date": {
-                    "type": "string"
-                },
-                "video_id": {
-                    "type": "string"
-                },
-                "view_count": {
-                    "type": "integer"
-                }
-            }
+        "store.ContentType": {
+            "type": "string",
+            "enum": [
+                "html",
+                "json",
+                "xml",
+                "binary",
+                "youtube_video",
+                "youtube_playlist",
+                "youtube_channel"
+            ],
+            "x-enum-varnames": [
+                "ContentHTML",
+                "ContentJSON",
+                "ContentXML",
+                "ContentBinary",
+                "ContentYouTubeVideo",
+                "ContentYouTubePlaylist",
+                "ContentYouTubeChannel"
+            ]
         }
     }
 }`

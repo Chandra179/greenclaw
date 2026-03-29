@@ -1,0 +1,19 @@
+{
+  "url": "https://www.youtube.com/watch?v=Yasib76zRjE",
+  "content_type": "youtube_video",
+  "video_id": "Yasib76zRjE",
+  "title": "The Quant Historian: Quant Is Dying! This Is What’s Next",
+  "description": "Computer science students, new graduates, and software engineers...want to land your dream software engineering job/internship? Click here 👉 https://www.amanmanazir.com/coaching/?utm_source=youtube\u0026utm_medium=video_description\u0026utm_campaign=Annanay_Quant\u0026video=Yasib76zRjE\n\nHe went from Cambridge math olympiad → Citadel quant → YC-backed founder. And he's saying out loud what nobody in finance will.\n\nAnnanay breaks down the hidden world of high frequency trading, why the quant golden era is over, what's actually replacing it, and the unconventional moves ambitious 20-somethings should be making right now.\n\nThis one will change how you think about your career.\n\n🚀 Get my free Software Engineering Crash Course – https://www.amanmanazir.com/7dayengineer\n\n🎧 Listen to all episodes of the Software Engineering Accelerator Podcast on Apple Podcasts and Spotify:\nhttps://podcasts.apple.com/za/podcast/swe-accelerator-podcast/id1742843726?i=1000755421454\nhttps://open.spotify.com/episode/7JAeeIhiSd928tbK15Xb6g?si=ed592e3f65964e29\n\nListen to our new podcast, @TheEntropyShow: https://youtu.be/MDJQXbXPngg?si=vQqITmNzy3fhfcV1\n\nI’m Aman Manazir, a career coach and software engineer. I interned at companies like Amazon, Shopify, and HP in college, and the day I graduated I landed a $168,000/year* full-time software engineering job. I help you make it as a computer science student \u0026 software engineer and get your dream job offer.\n\n📄  Get my free resume template - https://www.amanmanazir.com/resume\n\n💌  Free weekly productivity insights/advice - https://www.amanmanazir.com/newsletter\n\n📕  Get all my free Notion templates discussed here - https://www.amanmanazir.com/notion\n\n📝  Sign up for Notion - https://affiliate.notion.so/2nh3pjr6l5l6\n\n📷  Instagram - https://www.instagram.com/amanmanazir/\n\n🐦  Twitter - https://www.twitter.com/amanmanazir\n\n👉 Annanay's LinkedIn: https://www.linkedin.com/in/annanay-kapila?utm_source=share_via\u0026utm_content=profile\u0026utm_medium=member_ios\n\n00:00 Introduction\n01:35 UK vs US Ambition Culture\n03:20 Why Americans Embrace Risk\n09:30 Pulling Back the Quant Curtain\n13:25 HFT, Market Making, Quant Defined\n16:31 Software Engineering Accelerator\n17:23 History of Trading Explained\n22:50 Firms That Shaped the Industry\n27:35 Why Quant Upside Has Faded\n33:00 Signs an Industry Is Peaking\n40:08 Robotics Is the Next Wave\n44:04 Quantum Tech and Crypto's Future\n47:51 Free Resource to Kickstart Engineering Journey\n48:23 Advice for Young CS Grads\n52:11 Losing Half a Million in 50ms\n52:38 Lessons From a Costly Bug\n1:00:24The Prestige Trap in Tech\n1:03:26 The SF Secondary Playbook\n1:06:30 Will the VC Bubble Last\n1:07:49 How to Actually Get Into YC\n1:11:24 What Would I Tell My Younger Self\n1:16:11 Outro",
+  "duration": "1h16m54s",
+  "channel_name": "Aman Manazir",
+  "language_code": "en",
+  "style": "takeaways",
+  // if one item only in array its summary, if multiple then its key takeaways
+  "content": ["this is summary", "if more than one items than its takeaways should be display list in markdown format"],
+  "fetched_at": "2026-03-28T14:10:04.865144374Z",
+  "model": "phi4-mini:latest",
+  "num_ctx": 4096,
+  "styles": [
+    "takeaways"
+  ]
+}

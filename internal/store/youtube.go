@@ -13,19 +13,20 @@ type YouTubeData struct {
 	ViewCount     int               `json:"view_count,omitempty"`
 	UploadDate    string            `json:"upload_date,omitempty"`
 	ChannelName   string            `json:"channel_name,omitempty"`
-	ChannelID     string            `json:"-"`
+	ChannelID     string            `json:"channel_id,omitempty"`
 	Tags          []string          `json:"tags,omitempty"`
 	Captions      []CaptionTrack    `json:"captions,omitempty"`
-	AudioPath     string            `json:"-"`
+	AudioPath     string            `json:"audio_path,omitempty"`
 	SubtitlePaths map[string]string `json:"subtitle_paths,omitempty"`
 	PlaylistItems []PlaylistItem    `json:"playlist_items,omitempty"`
 	Processing    []ProcessingResult `json:"processing,omitempty"`
 }
 
 // ProcessingResult holds the output of a single LLM processing style.
+// Content is a []string: one element for summary, multiple for takeaways.
 type ProcessingResult struct {
-	Style   string `json:"style"`
-	Content any    `json:"content" swaggertype:"object"` // LLM-generated JSON, shape varies by style
+	Style   string   `json:"style"`
+	Content []string `json:"content"`
 }
 
 // CaptionTrack represents a single caption/subtitle track.
