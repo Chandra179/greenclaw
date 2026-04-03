@@ -194,22 +194,22 @@ const docTemplate = `{
         "store.ContentType": {
             "type": "string",
             "enum": [
+                "youtube_video",
+                "youtube_playlist",
+                "youtube_channel",
                 "html",
                 "json",
                 "xml",
-                "binary",
-                "youtube_video",
-                "youtube_playlist",
-                "youtube_channel"
+                "binary"
             ],
             "x-enum-varnames": [
+                "ContentYouTubeVideo",
+                "ContentYouTubePlaylist",
+                "ContentYouTubeChannel",
                 "ContentHTML",
                 "ContentJSON",
                 "ContentXML",
-                "ContentBinary",
-                "ContentYouTubeVideo",
-                "ContentYouTubePlaylist",
-                "ContentYouTubeChannel"
+                "ContentBinary"
             ]
         }
     }

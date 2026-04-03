@@ -17,6 +17,7 @@ type Config struct {
 	YouTube            YouTubeConfig     `yaml:"youtube"`
 	Transcriber        TranscriberConfig `yaml:"transcriber"`
 	LLM                LLMConfig         `yaml:"llm"`
+	Graph              GraphConfig       `yaml:"graph"`
 }
 
 // YouTubeConfig holds YouTube-specific extraction settings.
@@ -66,6 +67,15 @@ type LLMConfig struct {
 	CacheDir         string   `yaml:"cache_dir"`         // directory for file-based result cache; "" disables caching
 }
 
+// GraphConfig holds settings for ArangoDB knowledge graph storage.
+type GraphConfig struct {
+	Enabled  bool   `yaml:"enabled"`
+	Endpoint string `yaml:"endpoint"`
+	Database string `yaml:"database"`
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
+}
+
 func Default() Config {
 	return Config{
 		Port:               8080,
@@ -93,6 +103,13 @@ func Default() Config {
 			Timeout:       "60s",
 			NumCtx:        8192,
 			OverlapTokens: 200,
+		},
+		Graph: GraphConfig{
+			Enabled:  false,
+			Endpoint: "http://localhost:8529",
+			Database: "greenclaw",
+			Username: "root",
+			Password: "",
 		},
 	}
 }

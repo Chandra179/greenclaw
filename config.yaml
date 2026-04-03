@@ -35,3 +35,10 @@ transcriber:
   endpoint: http://host.docker.internal:9000
   timeout: 5m
   language: "en"
+
+graph:
+  enabled: true
+  endpoint: http://arangodb:8529
+  database: greenclaw
+  username: root
+  password: ""

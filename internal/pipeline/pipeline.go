@@ -4,11 +4,14 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
 	"greenclaw/internal/browser"
 	"greenclaw/internal/config"
+	"greenclaw/internal/entity"
+	"greenclaw/internal/graph"
 	"greenclaw/internal/llm"
 	"greenclaw/internal/router"
 	"greenclaw/internal/scraper"
@@ -38,6 +41,8 @@ type Pipeline struct {
 	ytCfg         youtube.PipelineConfig
 	transcriber   transcribe.Client
 	processor     llm.Client
+	extractor     entity.Extractor
+	kg            graph.KnowledgeGraph
 }
 
 func New(cfg config.Config) *Pipeline {
@@ -65,7 +70,7 @@ func New(cfg config.Config) *Pipeline {
 		}
 	}
 
-	return &Pipeline{
+	p := &Pipeline{
 		retryAttempts: cfg.RetryAttempts,
 		webScraper:    scraper.NewWithDeps(cfg, httpClient, browser.NewPool(cfg.RecycleAfter)),
 		ytClient:   youtube.New(httpClient),
@@ -94,6 +99,28 @@ func New(cfg config.Config) *Pipeline {
 		transcriber: t,
 		processor:   proc,
 	}
+
+	if cfg.Graph.Enabled {
+		var ollamaClient *llm.OllamaClient
+		if oc, ok := proc.(*llm.OllamaClient); ok {
+			ollamaClient = oc
+		} else {
+			d, err := time.ParseDuration(cfg.LLM.Timeout)
+			if err != nil {
+				d = 60 * time.Second
+			}
+			ollamaClient = llm.NewOllamaClient(cfg.LLM.Endpoint, cfg.LLM.Model, d, cfg.LLM.NumCtx, cfg.LLM.OverlapTokens, "")
+		}
+		kg, err := graph.NewArangoGraph(context.Background(), cfg.Graph)
+		if err != nil {
+			log.Printf("[graph] init failed, knowledge graph disabled: %v", err)
+		} else {
+			p.extractor = entity.NewOllamaExtractor(ollamaClient, cfg.LLM.NumCtx)
+			p.kg = kg
+		}
+	}
+
+	return p
 }
 
 func (p *Pipeline) Run(ctx context.Context, urls []string) ResultStore {
@@ -119,7 +146,12 @@ func (p *Pipeline) ProcessSingle(ctx context.Context, url string, progressCh cha
 	if len(styles) > 0 {
 		cfg.ProcessingStyles = styles
 	}
-	return p.dispatch(ctx, url, cfg)
+	result, err := p.dispatch(ctx, url, cfg)
+	if err != nil {
+		return nil, err
+	}
+	p.indexResult(ctx, result)
+	return result, nil
 }
 
 func (p *Pipeline) processURL(ctx context.Context, url string) {
@@ -144,6 +176,7 @@ func (p *Pipeline) processURL(ctx context.Context, url string) {
 		}
 
 		p.store.Put(result)
+		p.indexResult(ctx, result)
 		log.Printf("[done] %s", url)
 		return
 	}
@@ -180,7 +213,77 @@ func (p *Pipeline) storeError(url string, err error) {
 	})
 }
 
+// indexResult runs entity extraction and stores results in the knowledge graph.
+// All errors are logged and swallowed — graph indexing is non-fatal.
+func (p *Pipeline) indexResult(ctx context.Context, result *store.Result) {
+	if p.extractor == nil || p.kg == nil {
+		return
+	}
+	if result.YouTube == nil || result.YouTube.VideoID == "" {
+		return
+	}
+
+	var sb strings.Builder
+	for _, pr := range result.YouTube.Processing {
+		for _, line := range pr.Content {
+			sb.WriteString(line)
+			sb.WriteByte('\n')
+		}
+	}
+
+	req := entity.ExtractionRequest{
+		VideoURL:    result.URL,
+		VideoID:     result.YouTube.VideoID,
+		Title:       result.Title,
+		Description: result.Description,
+		ContentText: sb.String(),
+	}
+
+	entities, err := p.extractor.Extract(ctx, req)
+	if err != nil {
+		log.Printf("[graph] entity extraction failed for %s: %v", result.YouTube.VideoID, err)
+		return
+	}
+	if len(entities) == 0 {
+		return
+	}
+
+	nodes := make([]graph.EntityNode, len(entities))
+	keys := make([]string, len(entities))
+	for i, e := range entities {
+		nodes[i] = graph.EntityNode{Key: e.Key, Name: e.Name, Type: e.Type}
+		keys[i] = e.Key
+	}
+
+	videoKey := result.YouTube.VideoID
+	if err := p.kg.UpsertVideo(ctx, graph.VideoNode{
+		Key:         videoKey,
+		URL:         result.URL,
+		Title:       result.Title,
+		Description: result.Description,
+	}); err != nil {
+		log.Printf("[graph] upsert video %s: %v", videoKey, err)
+		return
+	}
+	if err := p.kg.UpsertEntities(ctx, nodes); err != nil {
+		log.Printf("[graph] upsert entities for %s: %v", videoKey, err)
+		return
+	}
+	if err := p.kg.AddMentions(ctx, videoKey, keys); err != nil {
+		log.Printf("[graph] add mentions for %s: %v", videoKey, err)
+		return
+	}
+	if err := p.kg.AddRelated(ctx, keys); err != nil {
+		log.Printf("[graph] add related for %s: %v", videoKey, err)
+	}
+}
+
 // Close cleans up resources held by the pipeline.
 func (p *Pipeline) Close() {
 	p.webScraper.Close()
+	if p.kg != nil {
+		if err := p.kg.Close(); err != nil {
+			log.Printf("[graph] close: %v", err)
+		}
+	}
 }

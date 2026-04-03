@@ -126,6 +126,15 @@ func (o *OllamaClient) Process(ctx context.Context, req Request) (*Result, error
 	return result, nil
 }
 
+// GenerateJSON calls the model with the given prompt and JSON schema, returning
+// the raw JSON response. numCtx overrides the client default when > 0.
+func (o *OllamaClient) GenerateJSON(ctx context.Context, prompt string, schema json.RawMessage, numCtx int) (json.RawMessage, error) {
+	if numCtx <= 0 {
+		numCtx = o.numCtx
+	}
+	return o.callWithRetry(ctx, prompt, schema, numCtx)
+}
+
 // callWithRetry calls attempt up to maxAttempts times, logging transient errors.
 func (o *OllamaClient) callWithRetry(ctx context.Context, prompt string, format json.RawMessage, numCtx int) (json.RawMessage, error) {
 	if format == nil {
