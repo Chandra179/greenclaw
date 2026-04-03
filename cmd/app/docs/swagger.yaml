@@ -1,5 +1,17 @@
 basePath: /
 definitions:
+  constant.HTTPContentType:
+    enum:
+    - html
+    - json
+    - xml
+    - binary
+    type: string
+    x-enum-varnames:
+    - HTTPContentHTML
+    - HTTPContentJSON
+    - HTTPContentXML
+    - HTTPContentBinary
   internal.errorResponse:
     properties:
       error:
@@ -40,7 +52,7 @@ definitions:
           type: string
         type: array
       content_type:
-        $ref: '#/definitions/router.ContentType'
+        $ref: '#/definitions/constant.HTTPContentType'
       description:
         type: string
       duration:
@@ -71,18 +83,6 @@ definitions:
       video_id:
         type: string
     type: object
-  router.ContentType:
-    enum:
-    - html
-    - json
-    - xml
-    - binary
-    type: string
-    x-enum-varnames:
-    - ContentHTML
-    - ContentJSON
-    - ContentXML
-    - ContentBinary
 host: localhost:8080
 info:
   contact: {}

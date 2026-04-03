@@ -2,11 +2,17 @@ services:
   arangodb:
     image: arangodb:3.12
     environment:
-      ARANGO_ROOT_PASSWORD:   
+      # ARANGO_ROOT_PASSWORD: "root"
+      ARANGO_NO_AUTH: "1"
     ports:
       - "8529:8529"
     volumes:
       - arangodb_data:/var/lib/arangodb3
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8529/_api/version"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   greenclaw:
     build: .
@@ -19,8 +25,6 @@ services:
       - ./config.yaml:/app/config.yaml:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    depends_on:
-      - arangodb
 
 volumes:
   arangodb_data:

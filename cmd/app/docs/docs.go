@@ -103,6 +103,21 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "constant.HTTPContentType": {
+            "type": "string",
+            "enum": [
+                "html",
+                "json",
+                "xml",
+                "binary"
+            ],
+            "x-enum-varnames": [
+                "HTTPContentHTML",
+                "HTTPContentJSON",
+                "HTTPContentXML",
+                "HTTPContentBinary"
+            ]
+        },
         "internal.errorResponse": {
             "type": "object",
             "properties": {
@@ -162,7 +177,7 @@ const docTemplate = `{
                     }
                 },
                 "content_type": {
-                    "$ref": "#/definitions/router.ContentType"
+                    "$ref": "#/definitions/constant.HTTPContentType"
                 },
                 "description": {
                     "type": "string"
@@ -208,21 +223,6 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
-        },
-        "router.ContentType": {
-            "type": "string",
-            "enum": [
-                "html",
-                "json",
-                "xml",
-                "binary"
-            ],
-            "x-enum-varnames": [
-                "ContentHTML",
-                "ContentJSON",
-                "ContentXML",
-                "ContentBinary"
-            ]
         }
     }
 }`

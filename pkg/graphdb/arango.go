@@ -69,6 +69,7 @@ func (g *ArangoGraph) ensureSchema(ctx context.Context) error {
 		{colEntities, arangodb.CollectionTypeDocument},
 		{colMentions, arangodb.CollectionTypeEdge},
 		{colRelated, arangodb.CollectionTypeEdge},
+		{"results", arangodb.CollectionTypeDocument},
 	} {
 		if err := ensureCollection(ctx, g.db, col.name, col.colType); err != nil {
 			return fmt.Errorf("ensure collection %q: %w", col.name, err)
@@ -203,6 +204,23 @@ IN @@edgeCol`
 		"vertexCol": vertexCollection,
 		"pairs":     pairs,
 	})
+}
+
+// GetVertex retrieves a vertex document by key into dest.
+func (g *ArangoGraph) GetVertex(ctx context.Context, collection, key string, dest interface{}) error {
+	aql := `RETURN DOCUMENT(@@col, @key)`
+	cursor, err := g.db.Query(ctx, aql, &arangodb.QueryOptions{
+		BindVars: map[string]interface{}{
+			"@col": collection,
+			"key":  key,
+		},
+	})
+	if err != nil {
+		return err
+	}
+	defer cursor.Close()
+	_, err = cursor.ReadDocument(ctx, dest)
+	return err
 }
 
 // Close is a no-op; the HTTP connection has no persistent state to release.

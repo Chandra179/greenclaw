@@ -1,7 +1,9 @@
-package pipeline
+package store
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 
 	"greenclaw/pkg/graphdb"
 )
@@ -35,6 +37,63 @@ const (
 	colMentions = "mentions"
 	colRelated  = "related_to"
 )
+
+const colResults = "results"
+
+// SaveResult persists a Result as a vertex, keyed by a hash of its URL.
+func SaveResult(ctx context.Context, store graphdb.Store, result *Result) error {
+	key := urlKey(result.URL)
+	doc, err := resultToDoc(result)
+	if err != nil {
+		return fmt.Errorf("marshal result: %w", err)
+	}
+	return store.UpsertVertex(ctx, colResults, key, doc)
+}
+
+// GetResult retrieves a previously saved Result by URL.
+func GetResult(ctx context.Context, store graphdb.Store, url string) (*Result, error) {
+	key := urlKey(url)
+	var raw map[string]interface{}
+	if err := store.GetVertex(ctx, colResults, key, &raw); err != nil {
+		return nil, fmt.Errorf("get result vertex: %w", err)
+	}
+	b, err := json.Marshal(raw)
+	if err != nil {
+		return nil, fmt.Errorf("marshal vertex: %w", err)
+	}
+	var r Result
+	if err := json.Unmarshal(b, &r); err != nil {
+		return nil, fmt.Errorf("unmarshal result: %w", err)
+	}
+	return &r, nil
+}
+
+func resultToDoc(r *Result) (map[string]interface{}, error) {
+	b, err := json.Marshal(r)
+	if err != nil {
+		return nil, err
+	}
+	var doc map[string]interface{}
+	if err := json.Unmarshal(b, &doc); err != nil {
+		return nil, err
+	}
+	return doc, nil
+}
+
+// urlKey derives a stable ArangoDB-safe key from a URL.
+func urlKey(url string) string {
+	h := fmt.Sprintf("%x", simpleHash(url))
+	return h
+}
+
+func simpleHash(s string) uint64 {
+	var h uint64 = 14695981039346656037
+	for i := 0; i < len(s); i++ {
+		h ^= uint64(s[i])
+		h *= 1099511628211
+	}
+	return h
+}
 
 // UpsertVideo creates or updates a video vertex in the knowledge graph.
 func UpsertVideo(ctx context.Context, store graphdb.Store, v VideoNode) error {

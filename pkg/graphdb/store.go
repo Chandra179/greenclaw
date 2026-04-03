@@ -15,6 +15,8 @@ type Store interface {
 	// IncrementEdgePairs creates or increments a weight field on edges for all
 	// pairs, where each vertex key is prefixed with vertexCollection.
 	IncrementEdgePairs(ctx context.Context, edgeCollection, vertexCollection string, pairs [][2]string) error
+	// GetVertex retrieves a vertex document by key into dest (a pointer to a struct or map).
+	GetVertex(ctx context.Context, collection, key string, dest interface{}) error
 	// Close releases resources held by the backend.
 	Close() error
 }
