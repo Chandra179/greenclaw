@@ -3,12 +3,10 @@ package youtube
 import (
 	"context"
 	"log"
-	"strings"
 	"time"
 
 	"golang.org/x/sync/errgroup"
 
-	llms "greenclaw/internal/llm"
 	"greenclaw/internal/store"
 	"greenclaw/pkg/transcribe"
 	"greenclaw/pkg/ytdl"
@@ -27,27 +25,10 @@ type PipelineConfig struct {
 	SubtitleOutputDir  string
 	TranscribeAudio    bool
 	YTDLOptions        ytdl.Options
-	ProcessingStyles   []llms.ProcessingStyle
-	ProgressCh         chan<- llms.ProgressEvent // optional; nil = no streaming
-	NumCtx             int                       // optional; overrides LLM context window size for this request
+	NumCtx             int // optional; overrides LLM context window size for this request
 }
 
-// Process handles a YouTube URL based on its type (video, playlist, channel).
-func Process(ctx context.Context, client *Client, cfg PipelineConfig, t transcribe.Client,
-	llm llms.Client, url string, ytType URLType, id string) (*store.Result, error) {
-	switch ytType {
-	case PlaylistURL:
-		return processPlaylist(ctx, client, url, id)
-	case ChannelURL:
-		return processChannel(ctx, url, id)
-	default:
-		return processVideo(ctx, client, cfg, t, llm, url, id)
-	}
-}
-
-func processVideo(ctx context.Context, client *Client, cfg PipelineConfig, t transcribe.Client,
-	llm llms.Client, url, videoID string) (*store.Result, error) {
-	// Stage 1: metadata (sequential — everything else depends on it)
+func ProcessVideo(ctx context.Context, client *Client, cfg PipelineConfig, t transcribe.Client, url, videoID string) (*store.Result, error) {
 	ytData, video, err := client.GetVideoMetadata(ctx, videoID)
 	if err != nil {
 		return nil, err
@@ -60,7 +41,6 @@ func processVideo(ctx context.Context, client *Client, cfg PipelineConfig, t tra
 		FetchedAt:   time.Now(),
 	}
 
-	// Stage 2: parallel extraction — each goroutine writes to its own variable
 	var (
 		captions    []store.CaptionTrack
 		captionText string
@@ -159,11 +139,11 @@ func fetchTranscripts(ctx context.Context, client *Client, cfg PipelineConfig,
 }
 
 func downloadAudio(ctx context.Context, client *Client, cfg PipelineConfig, video *ytlib.Video, videoID string) string {
-	if err := CheckYTDLP(); err != nil {
+	if err := ytdl.CheckYTDLP(); err != nil {
 		log.Printf("[youtube] %v", err)
 		return ""
 	}
-	audioPath, err := client.DownloadAudio(ctx, video, cfg.AudioOutputDir, cfg.YTDLOptions)
+	audioPath, err := ytdl.DownloadAudio(ctx, video.ID, cfg.AudioOutputDir, cfg.YTDLOptions)
 	if err != nil {
 		log.Printf("[youtube] audio download failed for %s: %v", videoID, err)
 		return ""
@@ -182,31 +162,4 @@ func transcribeAudio(ctx context.Context, t transcribe.Client, audioPath, videoI
 		return ""
 	}
 	return tr.Text
-}
-
-func processPlaylist(ctx context.Context, client *Client, url, playlistID string) (*store.Result, error) {
-	items, err := client.GetPlaylistItems(ctx, playlistID)
-	if err != nil {
-		return nil, err
-	}
-
-	var titles []string
-	for _, item := range items {
-		titles = append(titles, item.Title)
-	}
-
-	return &store.Result{
-		URL:         url,
-		Title:       "Playlist: " + playlistID,
-		Description: strings.Join(titles, "; "),
-		FetchedAt:   time.Now(),
-	}, nil
-}
-
-func processChannel(_ context.Context, url, channelID string) (*store.Result, error) {
-	return &store.Result{
-		URL:       url,
-		Title:     "Channel: " + channelID,
-		FetchedAt: time.Now(),
-	}, nil
 }

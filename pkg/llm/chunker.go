@@ -2,20 +2,15 @@ package llm
 
 import "strings"
 
-// Chunker splits text into (possibly overlapping) chunks for LLM processing.
-// Implementations may vary chunk size, overlap, and boundary detection strategy.
 type Chunker interface {
 	Chunk(text string) []string
 }
 
-// RecursiveChunker splits at semantic boundaries (paragraph → sentence → word),
-// mirroring LangChain's RecursiveCharacterTextSplitter.
 type RecursiveChunker struct {
 	ChunkSize int
 	Overlap   int
 }
 
-// Chunk implements Chunker.
 func (c RecursiveChunker) Chunk(text string) []string {
 	return chunkText(text, c.ChunkSize, c.Overlap)
 }

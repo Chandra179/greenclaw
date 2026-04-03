@@ -9,6 +9,11 @@ import (
 	ytlib "github.com/kkdai/youtube/v2"
 )
 
+type Client interface {
+	GetVideoMetadata(ctx context.Context, videoID string) (*VideoMetadata, *ytlib.Video, error)
+	GetPlaylistItems(ctx context.Context, playlistID string) ([]PlaylistItem, error)
+}
+
 // VideoMetadata holds basic metadata for a YouTube video.
 type VideoMetadata struct {
 	VideoID     string
@@ -30,17 +35,17 @@ type PlaylistItem struct {
 }
 
 // Client wraps the kkdai/youtube library.
-type Client struct {
+type Youtube struct {
 	yt *ytlib.Client
 }
 
 // New creates a YouTube client using the given HTTP client.
-func New(httpClient *http.Client) *Client {
-	return &Client{yt: &ytlib.Client{HTTPClient: httpClient}}
+func New(httpClient *http.Client) *Youtube {
+	return &Youtube{yt: &ytlib.Client{HTTPClient: httpClient}}
 }
 
 // GetVideoMetadata fetches video metadata.
-func (c *Client) GetVideoMetadata(ctx context.Context, videoID string) (*VideoMetadata, *ytlib.Video, error) {
+func (c *Youtube) GetVideoMetadata(ctx context.Context, videoID string) (*VideoMetadata, *ytlib.Video, error) {
 	video, err := c.yt.GetVideoContext(ctx, videoID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("getting video metadata: %w", err)
@@ -70,7 +75,7 @@ func (c *Client) GetVideoMetadata(ctx context.Context, videoID string) (*VideoMe
 }
 
 // GetPlaylistItems fetches all videos in a playlist.
-func (c *Client) GetPlaylistItems(ctx context.Context, playlistID string) ([]PlaylistItem, error) {
+func (c *Youtube) GetPlaylistItems(ctx context.Context, playlistID string) ([]PlaylistItem, error) {
 	playlist, err := c.yt.GetPlaylistContext(ctx, playlistID)
 	if err != nil {
 		return nil, fmt.Errorf("getting playlist: %w", err)

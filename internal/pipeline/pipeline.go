@@ -15,11 +15,11 @@ import (
 	"greenclaw/internal/constant"
 	"greenclaw/internal/fetcher"
 	"greenclaw/internal/graph"
-	"greenclaw/internal/llm"
 	"greenclaw/internal/store"
 	"greenclaw/internal/youtube"
 	"greenclaw/pkg/graphdb"
 	"greenclaw/pkg/httpclient"
+	"greenclaw/pkg/llm"
 	"greenclaw/pkg/transcribe"
 	"greenclaw/pkg/ytdl"
 )
@@ -53,17 +53,6 @@ func NewPipeline(cfg config.Config) *Pipeline {
 	}
 
 	var proc llm.Client
-	var styles []llm.ProcessingStyle
-	if len(cfg.LLM.ProcessingStyles) > 0 {
-		d, err := time.ParseDuration(cfg.LLM.Timeout)
-		if err != nil {
-			d = 60 * time.Second
-		}
-		proc = llm.NewOllamaClient(cfg.LLM.Endpoint, cfg.LLM.Model, d, cfg.LLM.NumCtx, cfg.LLM.OverlapTokens, cfg.LLM.CacheDir)
-		for _, s := range cfg.LLM.ProcessingStyles {
-			styles = append(styles, llm.ProcessingStyle(s))
-		}
-	}
 
 	p := &Pipeline{
 		retryAttempts: cfg.RetryAttempts,
@@ -116,14 +105,9 @@ func NewPipeline(cfg config.Config) *Pipeline {
 
 // ProcessSingle processes a single URL and streams LLM progress via progressCh.
 // The result is stored so it can be retrieved later (e.g. for graph indexing).
-func (p *Pipeline) ProcessSingle(ctx context.Context, url string, progressCh chan<- llm.ProgressEvent,
-	numCtx int, styles []llm.ProcessingStyle) (*store.Result, error) {
+func (p *Pipeline) ProcessSingle(ctx context.Context, url string, numCtx int) (*store.Result, error) {
 	cfg := p.ytCfg
-	cfg.ProgressCh = progressCh
 	cfg.NumCtx = numCtx
-	if len(styles) > 0 {
-		cfg.ProcessingStyles = styles
-	}
 	result, err := p.dispatch(ctx, url, cfg)
 	if err != nil {
 		return nil, err
@@ -196,7 +180,7 @@ func (p *Pipeline) fetchHTML(ctx context.Context, url string) (*store.Result, er
 	return p.browserPool.FetchPage(ctx, url)
 }
 
-func (p *Pipeline) IndexResult(ctx context.Context, url string) {
+func (p *Pipeline) IndexResult(ctx context.Context, url, category string) {
 	if p.extractor == nil || p.kg == nil {
 		return
 	}
@@ -212,6 +196,7 @@ func (p *Pipeline) IndexResult(ctx context.Context, url string) {
 		Title:       result.Title,
 		Description: result.Description,
 		ContentText: result.Text,
+		Category:    graph.Category(category),
 	}
 	if result.YouTube != nil {
 		req.VideoID = result.YouTube.VideoID
@@ -222,13 +207,13 @@ func (p *Pipeline) IndexResult(ctx context.Context, url string) {
 		log.Printf("[graph] extract entities for %s: %v", url, err)
 		return
 	}
-	if len(entities) == 0 {
+	if len(entities.Entities) == 0 {
 		return
 	}
 
-	nodes := make([]store.EntityNode, len(entities))
-	keys := make([]string, len(entities))
-	for i, e := range entities {
+	nodes := make([]store.EntityNode, len(entities.Entities))
+	keys := make([]string, len(entities.Entities))
+	for i, e := range entities.Entities {
 		nodes[i] = store.EntityNode{Key: e.Key, Name: e.Name, Type: store.EntityType(e.Type)}
 		keys[i] = e.Key
 	}

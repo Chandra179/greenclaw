@@ -3,21 +3,14 @@ package internal
 import (
 	"crypto/rand"
 	"encoding/hex"
-	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
 	"greenclaw/internal/constant"
-	"greenclaw/internal/llm"
 	"greenclaw/internal/pipeline"
 	"greenclaw/internal/store"
 )
-
-var validStyles = map[string]bool{
-	string(llm.StyleSummary):   true,
-	string(llm.StyleTakeaways): true,
-}
 
 const resultsDir = "results"
 
@@ -27,20 +20,6 @@ func randomHex() string {
 		return "00000000"
 	}
 	return hex.EncodeToString(b)
-}
-
-func parseStyles(raw []string) ([]llm.ProcessingStyle, error) {
-	if len(raw) == 0 {
-		return nil, nil
-	}
-	out := make([]llm.ProcessingStyle, 0, len(raw))
-	for _, s := range raw {
-		if !validStyles[s] {
-			return nil, fmt.Errorf("unknown style %q: valid values are \"summary\", \"takeaways\"", s)
-		}
-		out = append(out, llm.ProcessingStyle(s))
-	}
-	return out, nil
 }
 
 type httpResult struct {
@@ -117,12 +96,6 @@ func handleExtract(p *pipeline.Pipeline, model string, defaultNumCtx int) gin.Ha
 			return
 		}
 
-		styles, err := parseStyles(req.Styles)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, errorResponse{Error: err.Error()})
-			return
-		}
-
 		result, err := p.ProcessSingle(c.Request.Context(), req.URL, nil, req.NumCtx, styles)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, errorResponse{Error: err.Error()})
@@ -142,7 +115,8 @@ func handleExtract(p *pipeline.Pipeline, model string, defaultNumCtx int) gin.Ha
 }
 
 type graphRequest struct {
-	URL string `json:"url" binding:"required" example:"https://www.youtube.com/watch?v=dQw4w9WgXcQ"`
+	URL      string `json:"url" binding:"required" example:"https://www.youtube.com/watch?v=dQw4w9WgXcQ"`
+	Category string `json:"category"`
 }
 
 // handleExtractGraph godoc
@@ -164,7 +138,7 @@ func handleExtractGraph(p *pipeline.Pipeline) gin.HandlerFunc {
 			return
 		}
 
-		p.IndexResult(c.Request.Context(), req.URL)
+		p.IndexResult(c.Request.Context(), req.URL, req.Category)
 		c.Status(http.StatusOK)
 	}
 }
