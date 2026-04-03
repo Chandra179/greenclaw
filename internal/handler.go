@@ -8,10 +8,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"greenclaw/internal/constant"
 	"greenclaw/internal/llm"
 	"greenclaw/internal/pipeline"
-	"greenclaw/internal/result"
-	"greenclaw/internal/router"
+	"greenclaw/internal/store"
 )
 
 var validStyles = map[string]bool{
@@ -44,28 +44,27 @@ func parseStyles(raw []string) ([]llm.ProcessingStyle, error) {
 }
 
 type httpResult struct {
-	URL          string             `json:"url"`
-	ContentType  router.ContentType `json:"content_type"`
-	VideoID      string            `json:"video_id,omitempty"`
-	Title        string            `json:"title,omitempty"`
-	Description  string            `json:"description,omitempty"`
-	Duration     string            `json:"duration,omitempty"`
-	ChannelName  string            `json:"channel_name,omitempty"`
-	LanguageCode string            `json:"language_code,omitempty"`
-	Style        string            `json:"style,omitempty"`
-	Content      []string          `json:"content,omitempty"`
-	Links        []string          `json:"links,omitempty"`
-	Error        string            `json:"error,omitempty"`
-	FetchedAt    any               `json:"fetched_at"`
-	Model        string            `json:"model,omitempty"`
-	NumCtx       int               `json:"num_ctx,omitempty"`
-	Styles       []string          `json:"styles,omitempty"`
+	URL          string                   `json:"url"`
+	ContentType  constant.HTTPContentType `json:"content_type"`
+	VideoID      string                   `json:"video_id,omitempty"`
+	Title        string                   `json:"title,omitempty"`
+	Description  string                   `json:"description,omitempty"`
+	Duration     string                   `json:"duration,omitempty"`
+	ChannelName  string                   `json:"channel_name,omitempty"`
+	LanguageCode string                   `json:"language_code,omitempty"`
+	Style        string                   `json:"style,omitempty"`
+	Content      []string                 `json:"content,omitempty"`
+	Links        []string                 `json:"links,omitempty"`
+	Error        string                   `json:"error,omitempty"`
+	FetchedAt    any                      `json:"fetched_at"`
+	Model        string                   `json:"model,omitempty"`
+	NumCtx       int                      `json:"num_ctx,omitempty"`
+	Styles       []string                 `json:"styles,omitempty"`
 }
 
-func toHTTPResult(r *result.Result) httpResult {
+func toHTTPResult(r *store.Result) httpResult {
 	h := httpResult{
 		URL:         r.URL,
-		ContentType: r.ContentType,
 		Title:       r.Title,
 		Description: r.Description,
 		Links:       r.Links,

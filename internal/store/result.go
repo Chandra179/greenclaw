@@ -1,26 +1,72 @@
-package result
+package store
 
 import (
+	"sync"
 	"time"
-
-	"greenclaw/internal/router"
 )
+
+// ResultStore abstracts result storage for testability.
+type ResultStore interface {
+	Put(r *Result)
+	Get(url string) (*Result, bool)
+	All() []*Result
+	Count() int
+}
+
+type memStore struct {
+	mu      sync.RWMutex
+	results map[string]*Result
+}
+
+func NewStore() *memStore {
+	return &memStore{
+		results: make(map[string]*Result),
+	}
+}
+
+func (s *memStore) Put(r *Result) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.results[r.URL] = r
+}
+
+func (s *memStore) Get(url string) (*Result, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	r, ok := s.results[url]
+	return r, ok
+}
+
+func (s *memStore) All() []*Result {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	results := make([]*Result, 0, len(s.results))
+	for _, r := range s.results {
+		results = append(results, r)
+	}
+	return results
+}
+
+func (s *memStore) Count() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return len(s.results)
+}
 
 // Result is the universal output type for any processed URL.
 type Result struct {
-	URL         string            `json:"url"`
-	ContentType router.ContentType `json:"content_type"`
-	Title       string            `json:"title,omitempty"`
-	Description string            `json:"description,omitempty"`
-	Text        string            `json:"text,omitempty"`
-	Links       []string          `json:"links,omitempty"`
-	FilePath    string            `json:"file_path,omitempty"` // for binary downloads
-	YouTube     *YouTubeData      `json:"youtube,omitempty"`
-	Error       string            `json:"error,omitempty"`
-	FetchedAt   time.Time         `json:"fetched_at"`
-	Model       string            `json:"model,omitempty"`
-	NumCtx      int               `json:"num_ctx,omitempty"`
-	Styles      []string          `json:"styles,omitempty"`
+	URL         string       `json:"url"`
+	Title       string       `json:"title,omitempty"`
+	Description string       `json:"description,omitempty"`
+	Text        string       `json:"text,omitempty"`
+	Links       []string     `json:"links,omitempty"`
+	FilePath    string       `json:"file_path,omitempty"` // for binary downloads
+	YouTube     *YouTubeData `json:"youtube,omitempty"`
+	Error       string       `json:"error,omitempty"`
+	FetchedAt   time.Time    `json:"fetched_at"`
+	Model       string       `json:"model,omitempty"`
+	NumCtx      int          `json:"num_ctx,omitempty"`
+	Styles      []string     `json:"styles,omitempty"`
 }
 
 // YouTubeData holds YouTube-specific extracted data, embedded in Result.

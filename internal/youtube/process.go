@@ -9,7 +9,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	llms "greenclaw/internal/llm"
-	"greenclaw/internal/result"
+	"greenclaw/internal/store"
 	"greenclaw/pkg/transcribe"
 	"greenclaw/pkg/ytdl"
 
@@ -33,7 +33,8 @@ type PipelineConfig struct {
 }
 
 // Process handles a YouTube URL based on its type (video, playlist, channel).
-func Process(ctx context.Context, client *Client, cfg PipelineConfig, t transcribe.Client, llm llms.Client, url string, ytType URLType, id string) (*result.Result, error) {
+func Process(ctx context.Context, client *Client, cfg PipelineConfig, t transcribe.Client,
+	llm llms.Client, url string, ytType URLType, id string) (*store.Result, error) {
 	switch ytType {
 	case PlaylistURL:
 		return processPlaylist(ctx, client, url, id)
@@ -44,16 +45,16 @@ func Process(ctx context.Context, client *Client, cfg PipelineConfig, t transcri
 	}
 }
 
-func processVideo(ctx context.Context, client *Client, cfg PipelineConfig, t transcribe.Client, llm llms.Client, url, videoID string) (*result.Result, error) {
+func processVideo(ctx context.Context, client *Client, cfg PipelineConfig, t transcribe.Client,
+	llm llms.Client, url, videoID string) (*store.Result, error) {
 	// Stage 1: metadata (sequential — everything else depends on it)
 	ytData, video, err := client.GetVideoMetadata(ctx, videoID)
 	if err != nil {
 		return nil, err
 	}
 
-	r := &result.Result{
+	r := &store.Result{
 		URL:         url,
-		ContentType: ContentVideo,
 		Title:       video.Title,
 		Description: video.Description,
 		FetchedAt:   time.Now(),
@@ -61,7 +62,7 @@ func processVideo(ctx context.Context, client *Client, cfg PipelineConfig, t tra
 
 	// Stage 2: parallel extraction — each goroutine writes to its own variable
 	var (
-		captions    []result.CaptionTrack
+		captions    []store.CaptionTrack
 		captionText string
 		audioPath   string
 	)
@@ -123,7 +124,7 @@ func processVideo(ctx context.Context, client *Client, cfg PipelineConfig, t tra
 				log.Printf("[youtube] processing style %s failed for %s: %v", style, videoID, err)
 				continue
 			}
-			ytData.Processing = append(ytData.Processing, result.ProcessingResult{
+			ytData.Processing = append(ytData.Processing, store.ProcessingResult{
 				Style:   string(pr.Style),
 				Content: pr.Content,
 			})
@@ -139,8 +140,9 @@ func processVideo(ctx context.Context, client *Client, cfg PipelineConfig, t tra
 	return r, nil
 }
 
-func fetchTranscripts(ctx context.Context, client *Client, cfg PipelineConfig, video *ytlib.Video, videoID string) ([]result.CaptionTrack, string) {
-	var tracks []result.CaptionTrack
+func fetchTranscripts(ctx context.Context, client *Client, cfg PipelineConfig,
+	video *ytlib.Video, videoID string) ([]store.CaptionTrack, string) {
+	var tracks []store.CaptionTrack
 	var firstText string
 	for _, lang := range cfg.TranscriptLangs {
 		track, _, err := client.GetTranscript(ctx, video, lang)
@@ -182,7 +184,7 @@ func transcribeAudio(ctx context.Context, t transcribe.Client, audioPath, videoI
 	return tr.Text
 }
 
-func processPlaylist(ctx context.Context, client *Client, url, playlistID string) (*result.Result, error) {
+func processPlaylist(ctx context.Context, client *Client, url, playlistID string) (*store.Result, error) {
 	items, err := client.GetPlaylistItems(ctx, playlistID)
 	if err != nil {
 		return nil, err
@@ -193,20 +195,18 @@ func processPlaylist(ctx context.Context, client *Client, url, playlistID string
 		titles = append(titles, item.Title)
 	}
 
-	return &result.Result{
+	return &store.Result{
 		URL:         url,
-		ContentType: ContentPlaylist,
 		Title:       "Playlist: " + playlistID,
 		Description: strings.Join(titles, "; "),
 		FetchedAt:   time.Now(),
 	}, nil
 }
 
-func processChannel(_ context.Context, url, channelID string) (*result.Result, error) {
-	return &result.Result{
-		URL:         url,
-		ContentType: ContentChannel,
-		Title:       "Channel: " + channelID,
-		FetchedAt:   time.Now(),
+func processChannel(_ context.Context, url, channelID string) (*store.Result, error) {
+	return &store.Result{
+		URL:       url,
+		Title:     "Channel: " + channelID,
+		FetchedAt: time.Now(),
 	}, nil
 }

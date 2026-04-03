@@ -94,19 +94,3 @@ func TestDownloadBinary(t *testing.T) {
 		t.Errorf("got content %q, want %q", data, content)
 	}
 }
-
-func TestFetchJSON(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"key": "value"}`))
-	}))
-	defer srv.Close()
-
-	result, err := FetchJSON(context.Background(), srv.Client(), srv.URL)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.ContentType != "json" {
-		t.Errorf("got type %q, want json", result.ContentType)
-	}
-}

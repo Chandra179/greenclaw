@@ -12,8 +12,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 
-	"greenclaw/internal/result"
-	"greenclaw/internal/router"
+	"greenclaw/internal/store"
 )
 
 // HTTPDoer abstracts HTTP request execution for testability.
@@ -25,7 +24,7 @@ const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 
 
 // FetchHTML performs a plain HTTP GET and extracts content using goquery.
 // Returns ErrNeedsEscalation if heuristics detect the page needs a browser.
-func FetchHTML(ctx context.Context, client HTTPDoer, url string) (*result.Result, error) {
+func FetchHTML(ctx context.Context, client HTTPDoer, url string) (*store.Result, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)
@@ -54,10 +53,9 @@ func FetchHTML(ctx context.Context, client HTTPDoer, url string) (*result.Result
 		return nil, fmt.Errorf("parsing HTML: %w", err)
 	}
 
-	r := &result.Result{
-		URL:         url,
-		ContentType: router.ContentHTML,
-		FetchedAt:   time.Now(),
+	r := &store.Result{
+		URL:       url,
+		FetchedAt: time.Now(),
 	}
 
 	r.Title = strings.TrimSpace(doc.Find("title").First().Text())
@@ -90,7 +88,7 @@ func FetchHTML(ctx context.Context, client HTTPDoer, url string) (*result.Result
 }
 
 // DownloadBinary streams a URL to disk and returns the file path.
-func DownloadBinary(ctx context.Context, client HTTPDoer, url, outputDir string) (*result.Result, error) {
+func DownloadBinary(ctx context.Context, client HTTPDoer, url, outputDir string) (*store.Result, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)
@@ -124,16 +122,15 @@ func DownloadBinary(ctx context.Context, client HTTPDoer, url, outputDir string)
 		return nil, fmt.Errorf("writing file: %w", err)
 	}
 
-	return &result.Result{
-		URL:         url,
-		ContentType: router.ContentBinary,
-		FilePath:    dest,
-		FetchedAt:   time.Now(),
+	return &store.Result{
+		URL:       url,
+		FilePath:  dest,
+		FetchedAt: time.Now(),
 	}, nil
 }
 
 // FetchJSON performs a GET and returns raw JSON bytes in RawData.
-func FetchJSON(ctx context.Context, client HTTPDoer, url string) (*result.Result, error) {
+func FetchJSON(ctx context.Context, client HTTPDoer, url string) (*store.Result, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)
@@ -147,15 +144,14 @@ func FetchJSON(ctx context.Context, client HTTPDoer, url string) (*result.Result
 	}
 	defer resp.Body.Close()
 
-	return &result.Result{
-		URL:         url,
-		ContentType: router.ContentJSON,
-		FetchedAt:   time.Now(),
+	return &store.Result{
+		URL:       url,
+		FetchedAt: time.Now(),
 	}, nil
 }
 
 // FetchXML performs a GET and returns raw XML bytes in RawData.
-func FetchXML(ctx context.Context, client HTTPDoer, url string) (*result.Result, error) {
+func FetchXML(ctx context.Context, client HTTPDoer, url string) (*store.Result, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)
@@ -169,10 +165,9 @@ func FetchXML(ctx context.Context, client HTTPDoer, url string) (*result.Result,
 	}
 	defer resp.Body.Close()
 
-	return &result.Result{
-		URL:         url,
-		ContentType: router.ContentXML,
-		FetchedAt:   time.Now(),
+	return &store.Result{
+		URL:       url,
+		FetchedAt: time.Now(),
 	}, nil
 }
 

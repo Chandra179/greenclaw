@@ -1,11 +1,11 @@
 basePath: /
 definitions:
-  server.errorResponse:
+  internal.errorResponse:
     properties:
       error:
         type: string
     type: object
-  server.extractRequest:
+  internal.extractRequest:
     properties:
       num_ctx:
         example: 8192
@@ -23,7 +23,15 @@ definitions:
     required:
     - url
     type: object
-  server.httpResult:
+  internal.graphRequest:
+    properties:
+      url:
+        example: https://www.youtube.com/watch?v=dQw4w9WgXcQ
+        type: string
+    required:
+    - url
+    type: object
+  internal.httpResult:
     properties:
       channel_name:
         type: string
@@ -32,7 +40,7 @@ definitions:
           type: string
         type: array
       content_type:
-        $ref: '#/definitions/store.ContentType'
+        $ref: '#/definitions/router.ContentType'
       description:
         type: string
       duration:
@@ -63,20 +71,14 @@ definitions:
       video_id:
         type: string
     type: object
-  store.ContentType:
+  router.ContentType:
     enum:
-    - youtube_video
-    - youtube_playlist
-    - youtube_channel
     - html
     - json
     - xml
     - binary
     type: string
     x-enum-varnames:
-    - ContentYouTubeVideo
-    - ContentYouTubePlaylist
-    - ContentYouTubeChannel
     - ContentHTML
     - ContentJSON
     - ContentXML
@@ -92,55 +94,57 @@ paths:
     post:
       consumes:
       - application/json
-      description: Scrapes the given URL and returns structured content. For YouTube
-        URLs, also returns transcript and LLM processing results.
+      description: Scrapes the given URL and returns structured content.
       parameters:
       - description: URL to extract
         in: body
         name: body
         required: true
         schema:
-          $ref: '#/definitions/server.extractRequest'
+          $ref: '#/definitions/internal.extractRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/server.httpResult'
+            $ref: '#/definitions/internal.httpResult'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/server.errorResponse'
+            $ref: '#/definitions/internal.errorResponse'
       summary: Extract content from a URL
       tags:
       - extract
-  /extract/stream:
+  /extract/graph:
     post:
       consumes:
       - application/json
-      description: Same as /extract but streams chunk-level progress events via Server-Sent
-        Events while the LLM processes the transcript. Final result is sent as an
-        "result" event.
+      description: Runs entity extraction and ArangoDB graph population for a result
+        that was previously processed by /extract or /extract/stream.
       parameters:
-      - description: URL to extract
+      - description: URL to index
         in: body
         name: body
         required: true
         schema:
-          $ref: '#/definitions/server.extractRequest'
+          $ref: '#/definitions/internal.graphRequest'
       produces:
-      - text/event-stream
+      - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/server.httpResult'
+            $ref: '#/definitions/internal.httpResult'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/server.errorResponse'
-      summary: Extract content from a URL with SSE progress streaming
+            $ref: '#/definitions/internal.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal.errorResponse'
+      summary: Populate knowledge graph from a previously extracted URL
       tags:
       - extract
 swagger: "2.0"

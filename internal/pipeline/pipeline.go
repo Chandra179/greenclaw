@@ -3,17 +3,20 @@ package pipeline
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
+	"mime"
 	"net/http"
 	"strings"
 	"time"
 
 	"greenclaw/internal/browser"
 	"greenclaw/internal/config"
+	"greenclaw/internal/constant"
 	"greenclaw/internal/fetcher"
 	"greenclaw/internal/graph"
 	"greenclaw/internal/llm"
-	"greenclaw/internal/router"
+	"greenclaw/internal/store"
 	"greenclaw/internal/youtube"
 	"greenclaw/pkg/graphdb"
 	"greenclaw/pkg/httpclient"
@@ -29,7 +32,7 @@ type Pipeline struct {
 	browserPool   browser.BrowserFetcher
 	browserSem    chan struct{}
 	ytClient      *youtube.Client
-	results       ResultStore
+	results       store.ResultStore
 	httpSem       chan struct{}
 	ytCfg         youtube.PipelineConfig
 	transcriber   transcribe.Client
@@ -69,7 +72,7 @@ func NewPipeline(cfg config.Config) *Pipeline {
 		browserPool:   browser.NewPool(cfg.RecycleAfter),
 		browserSem:    make(chan struct{}, cfg.BrowserConcurrency),
 		ytClient:      youtube.New(client),
-		results:       newStore(),
+		results:       store.NewStore(),
 		httpSem:       make(chan struct{}, cfg.HTTPConcurrency),
 		ytCfg: youtube.PipelineConfig{
 			ExtractTranscripts: cfg.YouTube.ExtractTranscripts,
@@ -120,7 +123,8 @@ func NewPipeline(cfg config.Config) *Pipeline {
 
 // ProcessSingle processes a single URL and streams LLM progress via progressCh.
 // The result is stored so it can be retrieved later (e.g. for graph indexing).
-func (p *Pipeline) ProcessSingle(ctx context.Context, url string, progressCh chan<- llm.ProgressEvent, numCtx int, styles []llm.ProcessingStyle) (*Result, error) {
+func (p *Pipeline) ProcessSingle(ctx context.Context, url string, progressCh chan<- llm.ProgressEvent,
+	numCtx int, styles []llm.ProcessingStyle) (*store.Result, error) {
 	cfg := p.ytCfg
 	cfg.ProgressCh = progressCh
 	cfg.NumCtx = numCtx
@@ -136,7 +140,7 @@ func (p *Pipeline) ProcessSingle(ctx context.Context, url string, progressCh cha
 }
 
 // dispatch routes a URL to either the YouTube processor or the web scraper.
-func (p *Pipeline) dispatch(ctx context.Context, url string, ytCfg youtube.PipelineConfig) (*Result, error) {
+func (p *Pipeline) dispatch(ctx context.Context, url string, ytCfg youtube.PipelineConfig) (*store.Result, error) {
 	select {
 	case p.httpSem <- struct{}{}:
 		defer func() { <-p.httpSem }()
@@ -153,28 +157,28 @@ func (p *Pipeline) dispatch(ctx context.Context, url string, ytCfg youtube.Pipel
 }
 
 // fetchWeb classifies and fetches a web URL, escalating to browser if needed.
-func (p *Pipeline) fetchWeb(ctx context.Context, url string) (*Result, error) {
-	ct, err := router.Classify(ctx, p.client, url)
+func (p *Pipeline) fetchWeb(ctx context.Context, url string) (*store.Result, error) {
+	ct, err := p.classify(ctx, url)
 	if err != nil {
 		log.Printf("[router] HEAD failed for %s, assuming HTML: %v", url, err)
-		ct = router.ContentHTML
+		ct = constant.HTTPContentHTML
 	}
 
 	log.Printf("[router] %s → %s", url, ct)
 
 	switch ct {
-	case router.ContentBinary:
+	case constant.HTTPContentBinary:
 		return fetcher.DownloadBinary(ctx, p.client, url, "downloads")
-	case router.ContentJSON:
+	case constant.HTTPContentJSON:
 		return fetcher.FetchJSON(ctx, p.client, url)
-	case router.ContentXML:
+	case constant.HTTPContentXML:
 		return fetcher.FetchXML(ctx, p.client, url)
 	default:
 		return p.fetchHTML(ctx, url)
 	}
 }
 
-func (p *Pipeline) fetchHTML(ctx context.Context, url string) (*Result, error) {
+func (p *Pipeline) fetchHTML(ctx context.Context, url string) (*store.Result, error) {
 	result, err := fetcher.FetchHTML(ctx, p.client, url)
 	if err == nil {
 		return result, nil
@@ -269,5 +273,50 @@ func (p *Pipeline) Close() {
 		if err := p.kg.Close(); err != nil {
 			log.Printf("[graph] close: %v", err)
 		}
+	}
+}
+
+// Classify performs a HEAD request and returns the content type classification.
+func (p *Pipeline) classify(ctx context.Context, url string) (constant.HTTPContentType, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodHead, url, nil)
+	if err != nil {
+		return "", fmt.Errorf("creating HEAD request: %w", err)
+	}
+	resp, err := p.client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("HEAD request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	ct := resp.Header.Get("Content-Type")
+	if ct == "" {
+		// Fall back to HTML if no content type header
+		return constant.HTTPContentHTML, nil
+	}
+
+	mediaType, _, err := mime.ParseMediaType(ct)
+	if err != nil {
+		// If we can't parse, try raw string matching
+		mediaType = strings.ToLower(strings.TrimSpace(ct))
+	}
+
+	switch {
+	case mediaType == "text/html" || mediaType == "application/xhtml+xml":
+		return constant.HTTPContentHTML, nil
+	case mediaType == "application/json":
+		return constant.HTTPContentJSON, nil
+	case mediaType == "text/xml" || mediaType == "application/xml" ||
+		strings.HasSuffix(mediaType, "+xml"):
+		return constant.HTTPContentXML, nil
+	case strings.HasPrefix(mediaType, "image/") ||
+		mediaType == "application/pdf" ||
+		mediaType == "application/octet-stream":
+		return constant.HTTPContentBinary, nil
+	default:
+		// Default to HTML for unknown text types, binary for others
+		if strings.HasPrefix(mediaType, "text/") {
+			return constant.HTTPContentHTML, nil
+		}
+		return constant.HTTPContentBinary, nil
 	}
 }

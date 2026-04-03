@@ -13,13 +13,12 @@ import (
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/stealth"
 
-	"greenclaw/internal/result"
-	"greenclaw/internal/router"
+	"greenclaw/internal/store"
 )
 
 // BrowserFetcher abstracts browser-based page fetching for testability.
 type BrowserFetcher interface {
-	FetchPage(ctx context.Context, url string) (*result.Result, error)
+	FetchPage(ctx context.Context, url string) (*store.Result, error)
 	Close()
 }
 
@@ -74,7 +73,7 @@ func (p *Pool) ensureBrowser() (*rod.Browser, error) {
 }
 
 // FetchPage uses a headless browser with stealth to render and extract a page.
-func (p *Pool) FetchPage(ctx context.Context, url string) (*result.Result, error) {
+func (p *Pool) FetchPage(ctx context.Context, url string) (*store.Result, error) {
 	browser, err := p.ensureBrowser()
 	if err != nil {
 		return nil, err
@@ -108,10 +107,9 @@ func (p *Pool) FetchPage(ctx context.Context, url string) (*result.Result, error
 		return nil, fmt.Errorf("parsing rendered HTML: %w", err)
 	}
 
-	r := &result.Result{
-		URL:         url,
-		ContentType: router.ContentHTML,
-		FetchedAt:   time.Now(),
+	r := &store.Result{
+		URL:       url,
+		FetchedAt: time.Now(),
 	}
 
 	r.Title = strings.TrimSpace(doc.Find("title").First().Text())

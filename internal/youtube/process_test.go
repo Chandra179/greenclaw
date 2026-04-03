@@ -10,21 +10,8 @@ func TestProcessChannel(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.ContentType != ContentChannel {
-		t.Errorf("content type = %v, want %v", result.ContentType, ContentChannel)
-	}
 	if result.Title != "Channel: UC123" {
 		t.Errorf("title = %q, want %q", result.Title, "Channel: UC123")
-	}
-}
-
-func TestProcessRouting(t *testing.T) {
-	result, err := Process(context.Background(), New(nil), PipelineConfig{}, nil, nil, "https://www.youtube.com/channel/UC123", ChannelURL, "UC123")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.ContentType != ContentChannel {
-		t.Errorf("content type = %v, want %v", result.ContentType, ContentChannel)
 	}
 }
 

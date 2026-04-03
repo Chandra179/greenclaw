@@ -17,7 +17,7 @@ const docTemplate = `{
     "paths": {
         "/extract": {
             "post": {
-                "description": "Scrapes the given URL and returns structured content. For YouTube URLs, also returns transcript and LLM processing results.",
+                "description": "Scrapes the given URL and returns structured content.",
                 "consumes": [
                     "application/json"
                 ],
@@ -35,7 +35,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/server.extractRequest"
+                            "$ref": "#/definitions/internal.extractRequest"
                         }
                     }
                 ],
@@ -43,39 +43,39 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/server.httpResult"
+                            "$ref": "#/definitions/internal.httpResult"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/server.errorResponse"
+                            "$ref": "#/definitions/internal.errorResponse"
                         }
                     }
                 }
             }
         },
-        "/extract/stream": {
+        "/extract/graph": {
             "post": {
-                "description": "Same as /extract but streams chunk-level progress events via Server-Sent Events while the LLM processes the transcript. Final result is sent as an \"result\" event.",
+                "description": "Runs entity extraction and ArangoDB graph population for a result that was previously processed by /extract or /extract/stream.",
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
-                    "text/event-stream"
+                    "application/json"
                 ],
                 "tags": [
                     "extract"
                 ],
-                "summary": "Extract content from a URL with SSE progress streaming",
+                "summary": "Populate knowledge graph from a previously extracted URL",
                 "parameters": [
                     {
-                        "description": "URL to extract",
+                        "description": "URL to index",
                         "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/server.extractRequest"
+                            "$ref": "#/definitions/internal.graphRequest"
                         }
                     }
                 ],
@@ -83,13 +83,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/server.httpResult"
+                            "$ref": "#/definitions/internal.httpResult"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/server.errorResponse"
+                            "$ref": "#/definitions/internal.errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/internal.errorResponse"
                         }
                     }
                 }
@@ -97,7 +103,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "server.errorResponse": {
+        "internal.errorResponse": {
             "type": "object",
             "properties": {
                 "error": {
@@ -105,7 +111,7 @@ const docTemplate = `{
                 }
             }
         },
-        "server.extractRequest": {
+        "internal.extractRequest": {
             "type": "object",
             "required": [
                 "url"
@@ -131,7 +137,19 @@ const docTemplate = `{
                 }
             }
         },
-        "server.httpResult": {
+        "internal.graphRequest": {
+            "type": "object",
+            "required": [
+                "url"
+            ],
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "example": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+                }
+            }
+        },
+        "internal.httpResult": {
             "type": "object",
             "properties": {
                 "channel_name": {
@@ -144,7 +162,7 @@ const docTemplate = `{
                     }
                 },
                 "content_type": {
-                    "$ref": "#/definitions/store.ContentType"
+                    "$ref": "#/definitions/router.ContentType"
                 },
                 "description": {
                     "type": "string"
@@ -191,21 +209,15 @@ const docTemplate = `{
                 }
             }
         },
-        "store.ContentType": {
+        "router.ContentType": {
             "type": "string",
             "enum": [
-                "youtube_video",
-                "youtube_playlist",
-                "youtube_channel",
                 "html",
                 "json",
                 "xml",
                 "binary"
             ],
             "x-enum-varnames": [
-                "ContentYouTubeVideo",
-                "ContentYouTubePlaylist",
-                "ContentYouTubeChannel",
                 "ContentHTML",
                 "ContentJSON",
                 "ContentXML",

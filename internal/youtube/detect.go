@@ -4,24 +4,15 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
-
-	"greenclaw/internal/router"
 )
 
 // URLType represents the type of YouTube URL detected.
 type URLType int
 
 const (
-	VideoURL    URLType = iota + 1
+	VideoURL URLType = iota + 1
 	PlaylistURL
 	ChannelURL
-)
-
-// Content type constants for YouTube URLs.
-const (
-	ContentVideo    router.ContentType = "youtube_video"
-	ContentPlaylist router.ContentType = "youtube_playlist"
-	ContentChannel  router.ContentType = "youtube_channel"
 )
 
 var (
