@@ -13,8 +13,15 @@ import (
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/stealth"
 
-	"greenclaw/internal/store"
+	"greenclaw/internal/result"
+	"greenclaw/internal/router"
 )
+
+// BrowserFetcher abstracts browser-based page fetching for testability.
+type BrowserFetcher interface {
+	FetchPage(ctx context.Context, url string) (*result.Result, error)
+	Close()
+}
 
 // Pool manages a pool of browser instances with automatic recycling.
 type Pool struct {
@@ -67,7 +74,7 @@ func (p *Pool) ensureBrowser() (*rod.Browser, error) {
 }
 
 // FetchPage uses a headless browser with stealth to render and extract a page.
-func (p *Pool) FetchPage(ctx context.Context, url string) (*store.Result, error) {
+func (p *Pool) FetchPage(ctx context.Context, url string) (*result.Result, error) {
 	browser, err := p.ensureBrowser()
 	if err != nil {
 		return nil, err
@@ -79,7 +86,7 @@ func (p *Pool) FetchPage(ctx context.Context, url string) (*store.Result, error)
 	}
 	defer page.Close()
 
-	SetupIntercept(page)
+	setupIntercept(page)
 
 	// Set viewport to common desktop resolution
 	page.MustSetViewport(1920, 1080, 1, false)
@@ -101,22 +108,22 @@ func (p *Pool) FetchPage(ctx context.Context, url string) (*store.Result, error)
 		return nil, fmt.Errorf("parsing rendered HTML: %w", err)
 	}
 
-	result := &store.Result{
+	r := &result.Result{
 		URL:         url,
-		ContentType: store.ContentHTML,
+		ContentType: router.ContentHTML,
 		FetchedAt:   time.Now(),
 	}
 
-	result.Title = strings.TrimSpace(doc.Find("title").First().Text())
+	r.Title = strings.TrimSpace(doc.Find("title").First().Text())
 
 	doc.Find("meta[name=description]").Each(func(_ int, s *goquery.Selection) {
 		if content, exists := s.Attr("content"); exists {
-			result.Description = strings.TrimSpace(content)
+			r.Description = strings.TrimSpace(content)
 		}
 	})
 
 	doc.Find("script, style, noscript").Remove()
-	result.Text = strings.TrimSpace(doc.Find("body").Text())
+	r.Text = strings.TrimSpace(doc.Find("body").Text())
 
 	var links []string
 	doc.Find("a[href]").Each(func(_ int, s *goquery.Selection) {
@@ -127,9 +134,9 @@ func (p *Pool) FetchPage(ctx context.Context, url string) (*store.Result, error)
 			}
 		}
 	})
-	result.Links = links
+	r.Links = links
 
-	return result, nil
+	return r, nil
 }
 
 // Close shuts down the browser pool.

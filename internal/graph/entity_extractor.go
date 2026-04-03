@@ -1,4 +1,4 @@
-package entity
+package graph
 
 import (
 	"context"
@@ -13,18 +13,18 @@ type JSONGenerator interface {
 	GenerateJSON(ctx context.Context, prompt string, schema json.RawMessage, numCtx int) (json.RawMessage, error)
 }
 
-// OllamaExtractor implements Extractor using an Ollama model.
-type OllamaExtractor struct {
+// OllamaEntityExtractor implements EntityExtractor using an Ollama model.
+type OllamaEntityExtractor struct {
 	client JSONGenerator
 	numCtx int
 }
 
-// NewOllamaExtractor creates an extractor backed by the given Ollama client.
-func NewOllamaExtractor(client JSONGenerator, numCtx int) *OllamaExtractor {
-	return &OllamaExtractor{client: client, numCtx: numCtx}
+// NewOllamaEntityExtractor creates an extractor backed by the given Ollama client.
+func NewOllamaEntityExtractor(client JSONGenerator, numCtx int) *OllamaEntityExtractor {
+	return &OllamaEntityExtractor{client: client, numCtx: numCtx}
 }
 
-func (e *OllamaExtractor) Extract(ctx context.Context, req ExtractionRequest) ([]Entity, error) {
+func (e *OllamaEntityExtractor) Extract(ctx context.Context, req ExtractionRequest) ([]Entity, error) {
 	prompt := buildEntityPrompt(req)
 	raw, err := e.client.GenerateJSON(ctx, prompt, entitySchema, e.numCtx)
 	if err != nil {

@@ -11,8 +11,8 @@ import (
 	"log"
 
 	"greenclaw/cmd/app/docs"
+	"greenclaw/internal"
 	"greenclaw/internal/config"
-	"greenclaw/internal/server"
 )
 
 func main() {
@@ -23,7 +23,7 @@ func main() {
 
 	docs.SwaggerInfo.Host = fmt.Sprintf("localhost:%d", cfg.Port)
 
-	if err := server.New(cfg).Run(); err != nil {
+	if err := internal.NewServer(cfg).Run(); err != nil {
 		log.Fatalf("server error: %v", err)
 	}
 }

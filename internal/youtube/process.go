@@ -9,8 +9,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	llms "greenclaw/internal/llm"
-	"greenclaw/internal/router"
-	"greenclaw/internal/store"
+	"greenclaw/internal/result"
 	"greenclaw/pkg/transcribe"
 	"greenclaw/pkg/ytdl"
 
@@ -34,27 +33,27 @@ type PipelineConfig struct {
 }
 
 // Process handles a YouTube URL based on its type (video, playlist, channel).
-func Process(ctx context.Context, client *Client, cfg PipelineConfig, t transcribe.Client, llm llms.Client, url string, ytType router.YouTubeURLType, id string) (*store.Result, error) {
+func Process(ctx context.Context, client *Client, cfg PipelineConfig, t transcribe.Client, llm llms.Client, url string, ytType URLType, id string) (*result.Result, error) {
 	switch ytType {
-	case router.YouTubePlaylist:
+	case PlaylistURL:
 		return processPlaylist(ctx, client, url, id)
-	case router.YouTubeChannel:
+	case ChannelURL:
 		return processChannel(ctx, url, id)
 	default:
 		return processVideo(ctx, client, cfg, t, llm, url, id)
 	}
 }
 
-func processVideo(ctx context.Context, client *Client, cfg PipelineConfig, t transcribe.Client, llm llms.Client, url, videoID string) (*store.Result, error) {
+func processVideo(ctx context.Context, client *Client, cfg PipelineConfig, t transcribe.Client, llm llms.Client, url, videoID string) (*result.Result, error) {
 	// Stage 1: metadata (sequential — everything else depends on it)
 	ytData, video, err := client.GetVideoMetadata(ctx, videoID)
 	if err != nil {
 		return nil, err
 	}
 
-	result := &store.Result{
+	r := &result.Result{
 		URL:         url,
-		ContentType: store.ContentYouTubeVideo,
+		ContentType: ContentVideo,
 		Title:       video.Title,
 		Description: video.Description,
 		FetchedAt:   time.Now(),
@@ -62,7 +61,7 @@ func processVideo(ctx context.Context, client *Client, cfg PipelineConfig, t tra
 
 	// Stage 2: parallel extraction — each goroutine writes to its own variable
 	var (
-		captions    []store.CaptionTrack
+		captions    []result.CaptionTrack
 		captionText string
 		audioPath   string
 	)
@@ -93,7 +92,7 @@ func processVideo(ctx context.Context, client *Client, cfg PipelineConfig, t tra
 	}
 	if audioPath != "" {
 		ytData.AudioPath = audioPath
-		result.FilePath = audioPath
+		r.FilePath = audioPath
 	}
 
 	// Stage 4: transcribe audio (sequential, requires audio)
@@ -104,18 +103,18 @@ func processVideo(ctx context.Context, client *Client, cfg PipelineConfig, t tra
 
 	// Choose text priority: captions > whisper
 	if captionText != "" {
-		result.Text = captionText
+		r.Text = captionText
 	} else if whisperText != "" {
-		result.Text = whisperText
+		r.Text = whisperText
 	}
 
 	// Stage 5: LLM processing (sequential, requires transcript text)
-	if result.Text != "" && len(cfg.ProcessingStyles) > 0 && llm != nil {
+	if r.Text != "" && len(cfg.ProcessingStyles) > 0 && llm != nil {
 		for _, style := range cfg.ProcessingStyles {
 			pr, err := llm.Process(ctx, llms.Request{
 				Style:      style,
 				Title:      video.Title,
-				Text:       result.Text,
+				Text:       r.Text,
 				CacheKey:   videoID,
 				ProgressCh: cfg.ProgressCh,
 				NumCtx:     cfg.NumCtx,
@@ -124,7 +123,7 @@ func processVideo(ctx context.Context, client *Client, cfg PipelineConfig, t tra
 				log.Printf("[youtube] processing style %s failed for %s: %v", style, videoID, err)
 				continue
 			}
-			ytData.Processing = append(ytData.Processing, store.ProcessingResult{
+			ytData.Processing = append(ytData.Processing, result.ProcessingResult{
 				Style:   string(pr.Style),
 				Content: pr.Content,
 			})
@@ -135,13 +134,13 @@ func processVideo(ctx context.Context, client *Client, cfg PipelineConfig, t tra
 		}
 	}
 
-	result.YouTube = ytData
+	r.YouTube = ytData
 
-	return result, nil
+	return r, nil
 }
 
-func fetchTranscripts(ctx context.Context, client *Client, cfg PipelineConfig, video *ytlib.Video, videoID string) ([]store.CaptionTrack, string) {
-	var tracks []store.CaptionTrack
+func fetchTranscripts(ctx context.Context, client *Client, cfg PipelineConfig, video *ytlib.Video, videoID string) ([]result.CaptionTrack, string) {
+	var tracks []result.CaptionTrack
 	var firstText string
 	for _, lang := range cfg.TranscriptLangs {
 		track, _, err := client.GetTranscript(ctx, video, lang)
@@ -183,7 +182,7 @@ func transcribeAudio(ctx context.Context, t transcribe.Client, audioPath, videoI
 	return tr.Text
 }
 
-func processPlaylist(ctx context.Context, client *Client, url, playlistID string) (*store.Result, error) {
+func processPlaylist(ctx context.Context, client *Client, url, playlistID string) (*result.Result, error) {
 	items, err := client.GetPlaylistItems(ctx, playlistID)
 	if err != nil {
 		return nil, err
@@ -194,19 +193,19 @@ func processPlaylist(ctx context.Context, client *Client, url, playlistID string
 		titles = append(titles, item.Title)
 	}
 
-	return &store.Result{
+	return &result.Result{
 		URL:         url,
-		ContentType: store.ContentYouTubePlaylist,
+		ContentType: ContentPlaylist,
 		Title:       "Playlist: " + playlistID,
 		Description: strings.Join(titles, "; "),
 		FetchedAt:   time.Now(),
 	}, nil
 }
 
-func processChannel(_ context.Context, url, channelID string) (*store.Result, error) {
-	return &store.Result{
+func processChannel(_ context.Context, url, channelID string) (*result.Result, error) {
+	return &result.Result{
 		URL:         url,
-		ContentType: store.ContentYouTubeChannel,
+		ContentType: ContentChannel,
 		Title:       "Channel: " + channelID,
 		FetchedAt:   time.Now(),
 	}, nil

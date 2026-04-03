@@ -1,4 +1,4 @@
-package server
+package internal
 
 import (
 	"fmt"
@@ -21,8 +21,8 @@ type Server struct {
 	router   *gin.Engine
 }
 
-func New(cfg config.Config) *Server {
-	s := pipeline.New(cfg)
+func NewServer(cfg config.Config) *Server {
+	p := pipeline.NewPipeline(cfg)
 
 	r := gin.Default()
 	r.Use(cors.New(cors.Config{
@@ -32,13 +32,13 @@ func New(cfg config.Config) *Server {
 		AllowCredentials: false,
 	}))
 
-	r.POST("/extract", handleExtract(s, cfg.LLM.Model, cfg.LLM.NumCtx))
-	r.POST("/extract/stream", handleExtractStream(s, cfg.LLM.Model, cfg.LLM.NumCtx))
+	r.POST("/extract", handleExtract(p, cfg.LLM.Model, cfg.LLM.NumCtx))
+	r.POST("/extract/graph", handleExtractGraph(p))
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	return &Server{
 		port:     cfg.Port,
-		pipeline: s,
+		pipeline: p,
 		router:   r,
 	}
 }

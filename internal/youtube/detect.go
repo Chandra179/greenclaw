@@ -1,18 +1,27 @@
-package router
+package youtube
 
 import (
 	"net/url"
 	"regexp"
 	"strings"
+
+	"greenclaw/internal/router"
 )
 
-// YouTubeURLType represents the type of YouTube URL detected.
-type YouTubeURLType int
+// URLType represents the type of YouTube URL detected.
+type URLType int
 
 const (
-	YouTubeVideo    YouTubeURLType = iota + 1
-	YouTubePlaylist
-	YouTubeChannel
+	VideoURL    URLType = iota + 1
+	PlaylistURL
+	ChannelURL
+)
+
+// Content type constants for YouTube URLs.
+const (
+	ContentVideo    router.ContentType = "youtube_video"
+	ContentPlaylist router.ContentType = "youtube_playlist"
+	ContentChannel  router.ContentType = "youtube_channel"
 )
 
 var (
@@ -29,10 +38,10 @@ var (
 	channelPattern = regexp.MustCompile(`^/channel/(UC[\w-]{22})`)
 )
 
-// IsYouTube checks whether the given URL is a YouTube URL and returns the type
+// Detect checks whether the given URL is a YouTube URL and returns the type
 // and extracted ID. For videos, ID is the video ID. For playlists, the playlist
 // ID. For channels, the channel ID or handle.
-func IsYouTube(rawURL string) (YouTubeURLType, string, bool) {
+func Detect(rawURL string) (URLType, string, bool) {
 	u, err := url.Parse(rawURL)
 	if err != nil {
 		return 0, "", false
@@ -47,7 +56,7 @@ func IsYouTube(rawURL string) (YouTubeURLType, string, bool) {
 	if host == "youtu.be" {
 		id := strings.TrimPrefix(u.Path, "/")
 		if len(id) >= 11 {
-			return YouTubeVideo, id[:11], true
+			return VideoURL, id[:11], true
 		}
 		return 0, "", false
 	}
@@ -58,7 +67,7 @@ func IsYouTube(rawURL string) (YouTubeURLType, string, bool) {
 	// Playlist: youtube.com/playlist?list=...
 	if path == "/playlist" || path == "/playlist/" {
 		if list := query.Get("list"); list != "" {
-			return YouTubePlaylist, list, true
+			return PlaylistURL, list, true
 		}
 		return 0, "", false
 	}
@@ -66,35 +75,33 @@ func IsYouTube(rawURL string) (YouTubeURLType, string, bool) {
 	// Watch: youtube.com/watch?v=...
 	if path == "/watch" || path == "/watch/" {
 		if v := query.Get("v"); len(v) >= 11 {
-			// If there's also a list param, still treat as video
-			return YouTubeVideo, v, true
+			return VideoURL, v, true
 		}
 		return 0, "", false
 	}
 
 	// Shorts: youtube.com/shorts/<videoID>
 	if m := shortsPattern.FindStringSubmatch(path); m != nil {
-		return YouTubeVideo, m[1], true
+		return VideoURL, m[1], true
 	}
 
 	// Embed: youtube.com/embed/<videoID>
 	if m := embedPattern.FindStringSubmatch(path); m != nil {
-		return YouTubeVideo, m[1], true
+		return VideoURL, m[1], true
 	}
 
 	// Channel: youtube.com/channel/<channelID>
 	if m := channelPattern.FindStringSubmatch(path); m != nil {
-		return YouTubeChannel, m[1], true
+		return ChannelURL, m[1], true
 	}
 
 	// Handle: youtube.com/@handle
 	if handlePattern.MatchString(path) {
 		handle := strings.TrimPrefix(path, "/")
-		// Strip trailing path segments
 		if idx := strings.Index(handle, "/"); idx > 0 {
 			handle = handle[:idx]
 		}
-		return YouTubeChannel, handle, true
+		return ChannelURL, handle, true
 	}
 
 	return 0, "", false

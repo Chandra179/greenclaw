@@ -12,7 +12,8 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 
-	"greenclaw/internal/store"
+	"greenclaw/internal/result"
+	"greenclaw/internal/router"
 )
 
 // HTTPDoer abstracts HTTP request execution for testability.
@@ -24,7 +25,7 @@ const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 
 
 // FetchHTML performs a plain HTTP GET and extracts content using goquery.
 // Returns ErrNeedsEscalation if heuristics detect the page needs a browser.
-func FetchHTML(ctx context.Context, client HTTPDoer, url string) (*store.Result, error) {
+func FetchHTML(ctx context.Context, client HTTPDoer, url string) (*result.Result, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)
@@ -53,25 +54,25 @@ func FetchHTML(ctx context.Context, client HTTPDoer, url string) (*store.Result,
 		return nil, fmt.Errorf("parsing HTML: %w", err)
 	}
 
-	result := &store.Result{
+	r := &result.Result{
 		URL:         url,
-		ContentType: store.ContentHTML,
+		ContentType: router.ContentHTML,
 		FetchedAt:   time.Now(),
 	}
 
-	result.Title = strings.TrimSpace(doc.Find("title").First().Text())
+	r.Title = strings.TrimSpace(doc.Find("title").First().Text())
 
 	doc.Find("meta[name=description]").Each(func(_ int, s *goquery.Selection) {
 		if content, exists := s.Attr("content"); exists {
-			result.Description = strings.TrimSpace(content)
+			r.Description = strings.TrimSpace(content)
 		}
 	})
 
 	// Extract text from body, stripping script/style tags
 	doc.Find("script, style, noscript").Remove()
-	result.Text = strings.TrimSpace(doc.Find("body").Text())
+	r.Text = strings.TrimSpace(doc.Find("body").Text())
 	// Collapse whitespace
-	result.Text = collapseWhitespace(result.Text)
+	r.Text = collapseWhitespace(r.Text)
 
 	// Extract links
 	var links []string
@@ -83,13 +84,13 @@ func FetchHTML(ctx context.Context, client HTTPDoer, url string) (*store.Result,
 			}
 		}
 	})
-	result.Links = links
+	r.Links = links
 
-	return result, nil
+	return r, nil
 }
 
 // DownloadBinary streams a URL to disk and returns the file path.
-func DownloadBinary(ctx context.Context, client HTTPDoer, url, outputDir string) (*store.Result, error) {
+func DownloadBinary(ctx context.Context, client HTTPDoer, url, outputDir string) (*result.Result, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)
@@ -123,16 +124,16 @@ func DownloadBinary(ctx context.Context, client HTTPDoer, url, outputDir string)
 		return nil, fmt.Errorf("writing file: %w", err)
 	}
 
-	return &store.Result{
+	return &result.Result{
 		URL:         url,
-		ContentType: store.ContentBinary,
+		ContentType: router.ContentBinary,
 		FilePath:    dest,
 		FetchedAt:   time.Now(),
 	}, nil
 }
 
 // FetchJSON performs a GET and returns raw JSON bytes in RawData.
-func FetchJSON(ctx context.Context, client HTTPDoer, url string) (*store.Result, error) {
+func FetchJSON(ctx context.Context, client HTTPDoer, url string) (*result.Result, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)
@@ -146,15 +147,15 @@ func FetchJSON(ctx context.Context, client HTTPDoer, url string) (*store.Result,
 	}
 	defer resp.Body.Close()
 
-	return &store.Result{
+	return &result.Result{
 		URL:         url,
-		ContentType: store.ContentJSON,
+		ContentType: router.ContentJSON,
 		FetchedAt:   time.Now(),
 	}, nil
 }
 
 // FetchXML performs a GET and returns raw XML bytes in RawData.
-func FetchXML(ctx context.Context, client HTTPDoer, url string) (*store.Result, error) {
+func FetchXML(ctx context.Context, client HTTPDoer, url string) (*result.Result, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)
@@ -168,9 +169,9 @@ func FetchXML(ctx context.Context, client HTTPDoer, url string) (*store.Result, 
 	}
 	defer resp.Body.Close()
 
-	return &store.Result{
+	return &result.Result{
 		URL:         url,
-		ContentType: store.ContentXML,
+		ContentType: router.ContentXML,
 		FetchedAt:   time.Now(),
 	}, nil
 }

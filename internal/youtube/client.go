@@ -6,7 +6,7 @@ import (
 
 	pkgyt "greenclaw/pkg/youtube"
 
-	"greenclaw/internal/store"
+	"greenclaw/internal/result"
 
 	ytlib "github.com/kkdai/youtube/v2"
 )
@@ -22,13 +22,13 @@ func New(httpClient *http.Client) *Client {
 }
 
 // GetVideoMetadata fetches video metadata and returns a populated YouTubeData struct.
-func (c *Client) GetVideoMetadata(ctx context.Context, videoID string) (*store.YouTubeData, *ytlib.Video, error) {
+func (c *Client) GetVideoMetadata(ctx context.Context, videoID string) (*result.YouTubeData, *ytlib.Video, error) {
 	meta, video, err := c.pkg.GetVideoMetadata(ctx, videoID)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	data := &store.YouTubeData{
+	data := &result.YouTubeData{
 		VideoID:     meta.VideoID,
 		Duration:    meta.Duration,
 		ViewCount:   meta.ViewCount,
@@ -37,7 +37,7 @@ func (c *Client) GetVideoMetadata(ctx context.Context, videoID string) (*store.Y
 		ChannelID:   meta.ChannelID,
 	}
 	for _, cap := range meta.Captions {
-		data.Captions = append(data.Captions, store.CaptionTrack{
+		data.Captions = append(data.Captions, result.CaptionTrack{
 			LanguageCode: cap.LanguageCode,
 		})
 	}
@@ -46,19 +46,19 @@ func (c *Client) GetVideoMetadata(ctx context.Context, videoID string) (*store.Y
 }
 
 // GetPlaylistItems fetches all videos in a playlist.
-func (c *Client) GetPlaylistItems(ctx context.Context, playlistID string) ([]store.PlaylistItem, error) {
+func (c *Client) GetPlaylistItems(ctx context.Context, playlistID string) ([]result.PlaylistItem, error) {
 	items, err := c.pkg.GetPlaylistItems(ctx, playlistID)
 	if err != nil {
 		return nil, err
 	}
 
-	result := make([]store.PlaylistItem, len(items))
+	out := make([]result.PlaylistItem, len(items))
 	for i, item := range items {
-		result[i] = store.PlaylistItem{
+		out[i] = result.PlaylistItem{
 			VideoID: item.VideoID,
 			Title:   item.Title,
 			Index:   item.Index,
 		}
 	}
-	return result, nil
+	return out, nil
 }

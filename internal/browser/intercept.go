@@ -26,8 +26,8 @@ var blockedDomains = []string{
 	"googletagmanager.com",
 }
 
-// SetupIntercept configures request interception to block images, fonts, CSS, and ads.
-func SetupIntercept(page *rod.Page) {
+// setupIntercept configures request interception to block images, fonts, CSS, and ads.
+func setupIntercept(page *rod.Page) {
 	router := page.HijackRequests()
 	router.MustAdd("*", func(ctx *rod.Hijack) {
 		url := ctx.Request.URL().String()

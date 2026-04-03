@@ -1,4 +1,4 @@
-package entity
+package graph
 
 import (
 	"encoding/json"

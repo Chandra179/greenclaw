@@ -5,7 +5,7 @@ import (
 
 	pkgyt "greenclaw/pkg/youtube"
 
-	"greenclaw/internal/store"
+	"greenclaw/internal/result"
 
 	ytlib "github.com/kkdai/youtube/v2"
 )
@@ -14,15 +14,15 @@ import (
 type TimedEntry = pkgyt.TimedEntry
 
 // GetTranscript fetches a single caption track by language code.
-func (c *Client) GetTranscript(ctx context.Context, video *ytlib.Video, langCode string) (*store.CaptionTrack, []TimedEntry, error) {
+func (c *Client) GetTranscript(ctx context.Context, video *ytlib.Video, langCode string) (*result.CaptionTrack, []TimedEntry, error) {
 	track, entries, err := c.pkg.GetTranscript(ctx, video, langCode)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	storeCap := &store.CaptionTrack{
+	cap := &result.CaptionTrack{
 		LanguageCode: track.LanguageCode,
 		Text:         track.Text,
 	}
-	return storeCap, entries, nil
+	return cap, entries, nil
 }

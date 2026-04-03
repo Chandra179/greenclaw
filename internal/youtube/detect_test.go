@@ -1,14 +1,14 @@
-package router
+package youtube
 
 import (
 	"testing"
 )
 
-func TestIsYouTube(t *testing.T) {
+func TestDetect(t *testing.T) {
 	tests := []struct {
 		name     string
 		url      string
-		wantType YouTubeURLType
+		wantType URLType
 		wantID   string
 		wantOK   bool
 	}{
@@ -16,42 +16,42 @@ func TestIsYouTube(t *testing.T) {
 		{
 			name:     "standard watch URL",
 			url:      "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-			wantType: YouTubeVideo,
+			wantType: VideoURL,
 			wantID:   "dQw4w9WgXcQ",
 			wantOK:   true,
 		},
 		{
 			name:     "watch URL with extra params",
 			url:      "https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=42s&list=PLtest",
-			wantType: YouTubeVideo,
+			wantType: VideoURL,
 			wantID:   "dQw4w9WgXcQ",
 			wantOK:   true,
 		},
 		{
 			name:     "short URL",
 			url:      "https://youtu.be/dQw4w9WgXcQ",
-			wantType: YouTubeVideo,
+			wantType: VideoURL,
 			wantID:   "dQw4w9WgXcQ",
 			wantOK:   true,
 		},
 		{
 			name:     "shorts URL",
 			url:      "https://www.youtube.com/shorts/dQw4w9WgXcQ",
-			wantType: YouTubeVideo,
+			wantType: VideoURL,
 			wantID:   "dQw4w9WgXcQ",
 			wantOK:   true,
 		},
 		{
 			name:     "embed URL",
 			url:      "https://www.youtube.com/embed/dQw4w9WgXcQ",
-			wantType: YouTubeVideo,
+			wantType: VideoURL,
 			wantID:   "dQw4w9WgXcQ",
 			wantOK:   true,
 		},
 		{
 			name:     "mobile URL",
 			url:      "https://m.youtube.com/watch?v=dQw4w9WgXcQ",
-			wantType: YouTubeVideo,
+			wantType: VideoURL,
 			wantID:   "dQw4w9WgXcQ",
 			wantOK:   true,
 		},
@@ -60,7 +60,7 @@ func TestIsYouTube(t *testing.T) {
 		{
 			name:     "playlist URL",
 			url:      "https://www.youtube.com/playlist?list=PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf",
-			wantType: YouTubePlaylist,
+			wantType: PlaylistURL,
 			wantID:   "PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf",
 			wantOK:   true,
 		},
@@ -69,21 +69,21 @@ func TestIsYouTube(t *testing.T) {
 		{
 			name:     "channel URL",
 			url:      "https://www.youtube.com/channel/UCuAXFkgsw1L7xaCfnd5JJOw",
-			wantType: YouTubeChannel,
+			wantType: ChannelURL,
 			wantID:   "UCuAXFkgsw1L7xaCfnd5JJOw",
 			wantOK:   true,
 		},
 		{
 			name:     "handle URL",
 			url:      "https://www.youtube.com/@MrBeast",
-			wantType: YouTubeChannel,
+			wantType: ChannelURL,
 			wantID:   "@MrBeast",
 			wantOK:   true,
 		},
 		{
 			name:     "handle URL with trailing path",
 			url:      "https://www.youtube.com/@MrBeast/videos",
-			wantType: YouTubeChannel,
+			wantType: ChannelURL,
 			wantID:   "@MrBeast",
 			wantOK:   true,
 		},
@@ -118,19 +118,19 @@ func TestIsYouTube(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotType, gotID, gotOK := IsYouTube(tt.url)
+			gotType, gotID, gotOK := Detect(tt.url)
 			if gotOK != tt.wantOK {
-				t.Errorf("IsYouTube(%q) ok = %v, want %v", tt.url, gotOK, tt.wantOK)
+				t.Errorf("Detect(%q) ok = %v, want %v", tt.url, gotOK, tt.wantOK)
 				return
 			}
 			if !tt.wantOK {
 				return
 			}
 			if gotType != tt.wantType {
-				t.Errorf("IsYouTube(%q) type = %v, want %v", tt.url, gotType, tt.wantType)
+				t.Errorf("Detect(%q) type = %v, want %v", tt.url, gotType, tt.wantType)
 			}
 			if gotID != tt.wantID {
-				t.Errorf("IsYouTube(%q) id = %q, want %q", tt.url, gotID, tt.wantID)
+				t.Errorf("Detect(%q) id = %q, want %q", tt.url, gotID, tt.wantID)
 			}
 		})
 	}

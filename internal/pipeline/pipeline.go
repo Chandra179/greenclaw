@@ -2,51 +2,44 @@ package pipeline
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 
 	"greenclaw/internal/browser"
 	"greenclaw/internal/config"
-	"greenclaw/internal/entity"
+	"greenclaw/internal/fetcher"
 	"greenclaw/internal/graph"
 	"greenclaw/internal/llm"
 	"greenclaw/internal/router"
-	"greenclaw/internal/scraper"
-	"greenclaw/internal/store"
 	"greenclaw/internal/youtube"
+	"greenclaw/pkg/graphdb"
+	"greenclaw/pkg/httpclient"
 	"greenclaw/pkg/transcribe"
 	"greenclaw/pkg/ytdl"
 )
 
-// ResultStore abstracts result storage for testability.
-type ResultStore interface {
-	Put(r *store.Result)
-	Get(url string) (*store.Result, bool)
-	All() []*store.Result
-	Count() int
-}
-
 // Pipeline orchestrates URL processing, routing to either the web scraper or
-// the YouTube processor based on the URL type. It owns concurrency control
-// and retry logic; the individual processors handle their own internal concerns.
+// the YouTube processor based on the URL type.
 type Pipeline struct {
 	retryAttempts int
-	webScraper    *scraper.Scraper
+	client        *http.Client
+	browserPool   browser.BrowserFetcher
+	browserSem    chan struct{}
 	ytClient      *youtube.Client
-	store         ResultStore
+	results       ResultStore
 	httpSem       chan struct{}
 	ytCfg         youtube.PipelineConfig
 	transcriber   transcribe.Client
 	processor     llm.Client
-	extractor     entity.Extractor
-	kg            graph.KnowledgeGraph
+	extractor     graph.EntityExtractor
+	kg            graphdb.Store
 }
 
-func New(cfg config.Config) *Pipeline {
-	httpClient := &http.Client{Timeout: cfg.Timeout}
+func NewPipeline(cfg config.Config) *Pipeline {
+	client := httpclient.New(cfg.Timeout)
 
 	var t transcribe.Client
 	if cfg.YouTube.TranscribeAudio {
@@ -72,10 +65,12 @@ func New(cfg config.Config) *Pipeline {
 
 	p := &Pipeline{
 		retryAttempts: cfg.RetryAttempts,
-		webScraper:    scraper.NewWithDeps(cfg, httpClient, browser.NewPool(cfg.RecycleAfter)),
-		ytClient:   youtube.New(httpClient),
-		store:      store.New(),
-		httpSem:    make(chan struct{}, cfg.HTTPConcurrency),
+		client:        client,
+		browserPool:   browser.NewPool(cfg.RecycleAfter),
+		browserSem:    make(chan struct{}, cfg.BrowserConcurrency),
+		ytClient:      youtube.New(client),
+		results:       newStore(),
+		httpSem:       make(chan struct{}, cfg.HTTPConcurrency),
 		ytCfg: youtube.PipelineConfig{
 			ExtractTranscripts: cfg.YouTube.ExtractTranscripts,
 			TranscriptLangs:    cfg.YouTube.TranscriptLangs,
@@ -111,11 +106,11 @@ func New(cfg config.Config) *Pipeline {
 			}
 			ollamaClient = llm.NewOllamaClient(cfg.LLM.Endpoint, cfg.LLM.Model, d, cfg.LLM.NumCtx, cfg.LLM.OverlapTokens, "")
 		}
-		kg, err := graph.NewArangoGraph(context.Background(), cfg.Graph)
+		kg, err := graphdb.NewArangoGraph(context.Background(), cfg.Graph)
 		if err != nil {
 			log.Printf("[graph] init failed, knowledge graph disabled: %v", err)
 		} else {
-			p.extractor = entity.NewOllamaExtractor(ollamaClient, cfg.LLM.NumCtx)
+			p.extractor = graph.NewOllamaEntityExtractor(ollamaClient, cfg.LLM.NumCtx)
 			p.kg = kg
 		}
 	}
@@ -123,23 +118,9 @@ func New(cfg config.Config) *Pipeline {
 	return p
 }
 
-func (p *Pipeline) Run(ctx context.Context, urls []string) ResultStore {
-	var wg sync.WaitGroup
-	for _, u := range urls {
-		wg.Add(1)
-		go func(url string) {
-			defer wg.Done()
-			p.processURL(ctx, url)
-		}(u)
-	}
-	wg.Wait()
-	return p.store
-}
-
 // ProcessSingle processes a single URL and streams LLM progress via progressCh.
-// numCtx overrides the LLM context window size for this request; 0 uses the configured default.
-// styles overrides the processing styles for this request; nil uses the configured default.
-func (p *Pipeline) ProcessSingle(ctx context.Context, url string, progressCh chan<- llm.ProgressEvent, numCtx int, styles []llm.ProcessingStyle) (*store.Result, error) {
+// The result is stored so it can be retrieved later (e.g. for graph indexing).
+func (p *Pipeline) ProcessSingle(ctx context.Context, url string, progressCh chan<- llm.ProgressEvent, numCtx int, styles []llm.ProcessingStyle) (*Result, error) {
 	cfg := p.ytCfg
 	cfg.ProgressCh = progressCh
 	cfg.NumCtx = numCtx
@@ -150,42 +131,12 @@ func (p *Pipeline) ProcessSingle(ctx context.Context, url string, progressCh cha
 	if err != nil {
 		return nil, err
 	}
-	p.indexResult(ctx, result)
+	p.results.Put(result)
 	return result, nil
 }
 
-func (p *Pipeline) processURL(ctx context.Context, url string) {
-	var lastErr error
-	for attempt := range p.retryAttempts {
-		if attempt > 0 {
-			backoff := time.Duration(1<<uint(attempt-1)) * time.Second
-			log.Printf("[retry] %s attempt %d/%d, waiting %v", url, attempt+1, p.retryAttempts, backoff)
-			select {
-			case <-time.After(backoff):
-			case <-ctx.Done():
-				p.storeError(url, ctx.Err())
-				return
-			}
-		}
-
-		result, err := p.dispatch(ctx, url, p.ytCfg)
-		if err != nil {
-			lastErr = err
-			log.Printf("[error] %s: %v", url, err)
-			continue
-		}
-
-		p.store.Put(result)
-		p.indexResult(ctx, result)
-		log.Printf("[done] %s", url)
-		return
-	}
-	p.storeError(url, lastErr)
-}
-
 // dispatch routes a URL to either the YouTube processor or the web scraper.
-// It acquires the HTTP semaphore to bound overall concurrency.
-func (p *Pipeline) dispatch(ctx context.Context, url string, ytCfg youtube.PipelineConfig) (*store.Result, error) {
+func (p *Pipeline) dispatch(ctx context.Context, url string, ytCfg youtube.PipelineConfig) (*Result, error) {
 	select {
 	case p.httpSem <- struct{}{}:
 		defer func() { <-p.httpSem }()
@@ -193,50 +144,83 @@ func (p *Pipeline) dispatch(ctx context.Context, url string, ytCfg youtube.Pipel
 		return nil, ctx.Err()
 	}
 
-	if ytType, id, ok := router.IsYouTube(url); ok {
+	if ytType, id, ok := youtube.Detect(url); ok {
 		log.Printf("[router] %s → youtube (%d, %s)", url, ytType, id)
 		return youtube.Process(ctx, p.ytClient, ytCfg, p.transcriber, p.processor, url, ytType, id)
 	}
 
-	return p.webScraper.Fetch(ctx, url)
+	return p.fetchWeb(ctx, url)
 }
 
-func (p *Pipeline) storeError(url string, err error) {
-	errMsg := "unknown error"
+// fetchWeb classifies and fetches a web URL, escalating to browser if needed.
+func (p *Pipeline) fetchWeb(ctx context.Context, url string) (*Result, error) {
+	ct, err := router.Classify(ctx, p.client, url)
 	if err != nil {
-		errMsg = err.Error()
+		log.Printf("[router] HEAD failed for %s, assuming HTML: %v", url, err)
+		ct = router.ContentHTML
 	}
-	p.store.Put(&store.Result{
-		URL:       url,
-		Error:     errMsg,
-		FetchedAt: time.Now(),
-	})
+
+	log.Printf("[router] %s → %s", url, ct)
+
+	switch ct {
+	case router.ContentBinary:
+		return fetcher.DownloadBinary(ctx, p.client, url, "downloads")
+	case router.ContentJSON:
+		return fetcher.FetchJSON(ctx, p.client, url)
+	case router.ContentXML:
+		return fetcher.FetchXML(ctx, p.client, url)
+	default:
+		return p.fetchHTML(ctx, url)
+	}
 }
 
-// indexResult runs entity extraction and stores results in the knowledge graph.
-// All errors are logged and swallowed — graph indexing is non-fatal.
-func (p *Pipeline) indexResult(ctx context.Context, result *store.Result) {
+func (p *Pipeline) fetchHTML(ctx context.Context, url string) (*Result, error) {
+	result, err := fetcher.FetchHTML(ctx, p.client, url)
+	if err == nil {
+		return result, nil
+	}
+	if !errors.Is(err, fetcher.ErrNeedsEscalation) {
+		return nil, err
+	}
+
+	log.Printf("[escalate] %s → browser", url)
+
+	select {
+	case p.browserSem <- struct{}{}:
+		defer func() { <-p.browserSem }()
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+
+	return p.browserPool.FetchPage(ctx, url)
+}
+
+func (p *Pipeline) IndexResult(ctx context.Context, url string) {
 	if p.extractor == nil || p.kg == nil {
 		return
 	}
-	if result.YouTube == nil || result.YouTube.VideoID == "" {
+
+	result, ok := p.results.Get(url)
+	if !ok {
+		log.Printf("[graph] no result found for %s", url)
+		return
+	}
+	if result.YouTube == nil {
+		log.Printf("[graph] result for %s is not a YouTube video", url)
 		return
 	}
 
-	var sb strings.Builder
-	for _, pr := range result.YouTube.Processing {
-		for _, line := range pr.Content {
-			sb.WriteString(line)
-			sb.WriteByte('\n')
-		}
+	var contentText string
+	for _, proc := range result.YouTube.Processing {
+		contentText += strings.Join(proc.Content, "\n")
 	}
 
-	req := entity.ExtractionRequest{
+	req := graph.ExtractionRequest{
 		VideoURL:    result.URL,
 		VideoID:     result.YouTube.VideoID,
 		Title:       result.Title,
 		Description: result.Description,
-		ContentText: sb.String(),
+		ContentText: contentText,
 	}
 
 	entities, err := p.extractor.Extract(ctx, req)
@@ -248,15 +232,15 @@ func (p *Pipeline) indexResult(ctx context.Context, result *store.Result) {
 		return
 	}
 
-	nodes := make([]graph.EntityNode, len(entities))
+	nodes := make([]EntityNode, len(entities))
 	keys := make([]string, len(entities))
 	for i, e := range entities {
-		nodes[i] = graph.EntityNode{Key: e.Key, Name: e.Name, Type: e.Type}
+		nodes[i] = EntityNode{Key: e.Key, Name: e.Name, Type: EntityType(e.Type)}
 		keys[i] = e.Key
 	}
 
 	videoKey := result.YouTube.VideoID
-	if err := p.kg.UpsertVideo(ctx, graph.VideoNode{
+	if err := UpsertVideo(ctx, p.kg, VideoNode{
 		Key:         videoKey,
 		URL:         result.URL,
 		Title:       result.Title,
@@ -265,22 +249,22 @@ func (p *Pipeline) indexResult(ctx context.Context, result *store.Result) {
 		log.Printf("[graph] upsert video %s: %v", videoKey, err)
 		return
 	}
-	if err := p.kg.UpsertEntities(ctx, nodes); err != nil {
+	if err := UpsertEntities(ctx, p.kg, nodes); err != nil {
 		log.Printf("[graph] upsert entities for %s: %v", videoKey, err)
 		return
 	}
-	if err := p.kg.AddMentions(ctx, videoKey, keys); err != nil {
+	if err := AddMentions(ctx, p.kg, videoKey, keys); err != nil {
 		log.Printf("[graph] add mentions for %s: %v", videoKey, err)
 		return
 	}
-	if err := p.kg.AddRelated(ctx, keys); err != nil {
+	if err := AddRelated(ctx, p.kg, keys); err != nil {
 		log.Printf("[graph] add related for %s: %v", videoKey, err)
 	}
 }
 
 // Close cleans up resources held by the pipeline.
 func (p *Pipeline) Close() {
-	p.webScraper.Close()
+	p.browserPool.Close()
 	if p.kg != nil {
 		if err := p.kg.Close(); err != nil {
 			log.Printf("[graph] close: %v", err)
