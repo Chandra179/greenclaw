@@ -28,7 +28,8 @@ type PipelineConfig struct {
 	NumCtx             int // optional; overrides LLM context window size for this request
 }
 
-func ProcessVideo(ctx context.Context, client *Client, cfg PipelineConfig, t transcribe.Client, url, videoID string) (*store.Result, error) {
+func ProcessVideo(ctx context.Context, client *Client, cfg PipelineConfig,
+	t transcribe.Client, url, videoID string) (*store.Result, error) {
 	ytData, video, err := client.GetVideoMetadata(ctx, videoID)
 	if err != nil {
 		return nil, err
@@ -89,34 +90,6 @@ func ProcessVideo(ctx context.Context, client *Client, cfg PipelineConfig, t tra
 		r.Text = whisperText
 	}
 
-	// Stage 5: LLM processing (sequential, requires transcript text)
-	if r.Text != "" && len(cfg.ProcessingStyles) > 0 && llm != nil {
-		for _, style := range cfg.ProcessingStyles {
-			pr, err := llm.Process(ctx, llms.Request{
-				Style:      style,
-				Title:      video.Title,
-				Text:       r.Text,
-				CacheKey:   videoID,
-				ProgressCh: cfg.ProgressCh,
-				NumCtx:     cfg.NumCtx,
-			})
-			if err != nil {
-				log.Printf("[youtube] processing style %s failed for %s: %v", style, videoID, err)
-				continue
-			}
-			ytData.Processing = append(ytData.Processing, store.ProcessingResult{
-				Style:   string(pr.Style),
-				Content: pr.Content,
-			})
-		}
-		if len(ytData.Processing) < len(cfg.ProcessingStyles) {
-			log.Printf("[youtube] %d/%d processing styles succeeded for %s",
-				len(ytData.Processing), len(cfg.ProcessingStyles), videoID)
-		}
-	}
-
-	r.YouTube = ytData
-
 	return r, nil
 }
 
@@ -125,7 +98,16 @@ func fetchTranscripts(ctx context.Context, client *Client, cfg PipelineConfig,
 	var tracks []store.CaptionTrack
 	var firstText string
 	for _, lang := range cfg.TranscriptLangs {
-		track, _, err := client.GetTranscript(ctx, video, lang)
+
+		track, entries, err := c.pkg.GetTranscript(ctx, video, lang)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		cap := &store.CaptionTrack{
+			LanguageCode: track.LanguageCode,
+			Text:         track.Text,
+		}
 		if err != nil {
 			log.Printf("[youtube] transcript %s failed for %s: %v", lang, videoID, err)
 			continue
