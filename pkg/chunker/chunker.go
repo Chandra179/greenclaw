@@ -2,7 +2,7 @@ package llm
 
 import "strings"
 
-type Chunker interface {
+type Client interface {
 	Chunk(text string) []string
 }
 

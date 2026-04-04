@@ -10,7 +10,6 @@ import (
 	"github.com/arangodb/go-driver/v2/connection"
 
 	"greenclaw/internal/config"
-	"greenclaw/internal/graph"
 )
 
 const (
@@ -322,92 +321,13 @@ func (g *ArangoGraph) StoreEntityEmbedding(ctx context.Context, key string, embe
 	})
 }
 
-// MergeEntityCategory adds category to an entity's categories array if not
-// already present. Idempotent.
-func (g *ArangoGraph) MergeEntityCategory(ctx context.Context, key string, category graph.Category) error {
-	aql := `LET doc = DOCUMENT(@@col, @key)
-LET cats = doc.categories || []
-LET already = LENGTH(cats[* FILTER CURRENT == @cat]) > 0
-FILTER !already
-UPDATE { _key: @key, categories: APPEND(cats, [@cat]) } IN @@col`
-	return g.exec(ctx, aql, map[string]interface{}{
-		"@col": colEntities,
-		"key":  key,
-		"cat":  string(category),
-	})
-}
-
 // FindSimilarEntities uses ArangoDB's COSINE_SIMILARITY to find entities of the
 // given type that appear in the given category and are semantically close to
 // queryEmbedding.
 //
 // Requires ArangoDB 3.12+ with a vector index on entities.embedding.
 // Degrades gracefully to an empty result if the index or function is absent.
-func (g *ArangoGraph) FindSimilarEntities(
-	ctx context.Context,
-	entityType graph.EntityType,
-	category graph.Category,
-	queryEmbedding []float32,
-	limit int,
-) ([]graph.ScoredEntity, error) {
-	// Filter by type and category first (cheap persistent index), then rank by
-	// vector similarity. This reduces the ANN candidate set significantly.
-	aql := `FOR doc IN @@col
-  FILTER doc.type == @type
-  FILTER @cat IN (doc.categories || [])
-  FILTER doc.embedding != null
-  LET score = COSINE_SIMILARITY(doc.embedding, @query)
-  FILTER score >= @minScore
-  SORT score DESC
-  LIMIT @limit
-  RETURN { doc, score }`
-
-	cursor, err := g.db.Query(ctx, aql, &arangodb.QueryOptions{
-		BindVars: map[string]interface{}{
-			"@col":     colEntities,
-			"type":     string(entityType),
-			"cat":      string(category),
-			"query":    queryEmbedding,
-			"minScore": float32(0.80),
-			"limit":    limit,
-		},
-	})
-	if err != nil {
-		// Degrade gracefully: vector function may not be available on older versions.
-		log.Printf("[graph] FindSimilarEntities failed (vector index missing?): %v", err)
-		return nil, nil
-	}
-	defer cursor.Close()
-
-	type row struct {
-		Doc struct {
-			Key        string           `json:"_key"`
-			Name       string           `json:"name"`
-			Type       graph.EntityType `json:"type"`
-			Categories []graph.Category `json:"categories"`
-		} `json:"doc"`
-		Score float32 `json:"score"`
-	}
-
-	var results []graph.ScoredEntity
-	for cursor.HasMore() {
-		var r row
-		if _, err := cursor.ReadDocument(ctx, &r); err != nil {
-			return nil, fmt.Errorf("read similar entity: %w", err)
-		}
-		results = append(results, graph.ScoredEntity{
-			Entity: graph.Entity{
-				Key:        r.Doc.Key,
-				Name:       r.Doc.Name,
-				Type:       r.Doc.Type,
-				Categories: r.Doc.Categories,
-			},
-			Score: r.Score,
-		})
-	}
-
-	return results, nil
-}
+func (g *ArangoGraph) FindSimilarEntities() {}
 
 // ---------------------------------------------------------------------------
 // Helpers

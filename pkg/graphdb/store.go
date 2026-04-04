@@ -2,12 +2,10 @@ package graphdb
 
 import (
 	"context"
-
-	"greenclaw/internal/graph"
 )
 
-// Store is the interface for graph storage backends.
-type Store interface {
+// Client is the interface for graph storage backends.
+type Client interface {
 	// UpsertVertex creates or updates a vertex document by key.
 	UpsertVertex(ctx context.Context, collection, key string, doc map[string]interface{}) error
 
@@ -30,20 +28,9 @@ type Store interface {
 	// GetVertex retrieves a vertex document by key into dest.
 	GetVertex(ctx context.Context, collection, key string, dest interface{}) error
 
-	// FindSimilarEntities returns up to limit entities of the given type and
-	// category whose stored embedding is closest to queryEmbedding.
-	// Results are ordered by descending cosine similarity.
-	// Implements graph.SimilarEntityStore.
-	FindSimilarEntities(ctx context.Context, entityType graph.EntityType, category graph.Category, queryEmbedding []float32, limit int) ([]graph.ScoredEntity, error)
-
 	// StoreEntityEmbedding persists an embedding vector on an existing entity document.
 	// Implements graph.SimilarEntityStore.
 	StoreEntityEmbedding(ctx context.Context, key string, embedding []float32) error
-
-	// MergeEntityCategory adds category to an entity's categories array if not
-	// already present (idempotent).
-	// Implements graph.SimilarEntityStore.
-	MergeEntityCategory(ctx context.Context, key string, category graph.Category) error
 
 	// Close releases resources held by the backend.
 	Close() error

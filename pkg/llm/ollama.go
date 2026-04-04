@@ -18,7 +18,6 @@ type OllamaClient struct {
 	model        string
 	numCtx       int
 	overlapChars int
-	chunker      Chunker
 	client       *http.Client
 }
 
@@ -59,7 +58,6 @@ func NewOllamaClient(endpoint, model string, timeout time.Duration,
 		model:        model,
 		numCtx:       numCtx,
 		overlapChars: overlap * charsPerToken,
-		chunker:      RecursiveChunker{ChunkSize: chunkSize, Overlap: overlap * charsPerToken},
 		client:       &http.Client{Timeout: timeout},
 	}
 }

@@ -1,4 +1,4 @@
-package ytdl
+package youtube
 
 import (
 	"context"
@@ -47,7 +47,7 @@ type strategy struct {
 // DownloadAudio downloads a low-bitrate audio track suitable for transcription.
 // It tries multiple player-client strategies as a fallback mechanism to bypass
 // bot detection and format restrictions.
-func DownloadAudio(ctx context.Context, videoID, outputDir string, opts Options) (string, error) {
+func (c *Youtube) DownloadAudio(ctx context.Context, videoID, outputDir string, opts Options) (string, error) {
 	if err := os.MkdirAll(outputDir, 0o755); err != nil {
 		return "", fmt.Errorf("creating output dir: %w", err)
 	}
