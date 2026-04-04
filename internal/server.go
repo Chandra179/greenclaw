@@ -4,52 +4,50 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
-	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	swaggerFiles "github.com/swaggo/files"
-	ginSwagger "github.com/swaggo/gin-swagger"
 
 	"greenclaw/internal/config"
-	"greenclaw/internal/pipeline"
+	"greenclaw/internal/router"
+	"greenclaw/internal/service"
+	"greenclaw/pkg/youtube"
 )
 
-// Server holds the HTTP server and its dependencies.
 type Server struct {
-	port     int
-	pipeline *pipeline.Pipeline
-	router   *gin.Engine
+	port   int
+	router *gin.Engine
 }
 
 func NewServer(cfg config.Config) *Server {
-	p := pipeline.NewPipeline(cfg)
+	httpClient := &http.Client{
+		Timeout: 15 * time.Second,
+		Transport: &http.Transport{
+			MaxIdleConns:        100,
+			IdleConnTimeout:     90 * time.Second,
+			TLSHandshakeTimeout: 10 * time.Second,
+		},
+	}
 
-	r := gin.Default()
-	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"*"},
-		AllowMethods:     []string{"GET", "POST", "OPTIONS"},
-		AllowHeaders:     []string{"Content-Type"},
-		AllowCredentials: false,
-	}))
+	ytClient := youtube.New(httpClient)
 
-	r.POST("/extract", handleExtract(p, cfg.LLM.Model, cfg.LLM.NumCtx))
-	r.POST("/extract/graph", handleExtractGraph(p))
-	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	orchDeps := service.Dependencies{
+		YtClient: ytClient,
+	}
+
+	routerDeps := router.Dependencies{
+		OrchDeps: orchDeps,
+	}
+
+	r := router.Router(routerDeps)
 
 	return &Server{
-		port:     cfg.Port,
-		pipeline: p,
-		router:   r,
+		port:   cfg.Port,
+		router: r,
 	}
 }
 
-func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	s.router.ServeHTTP(w, r)
-}
-
 func (s *Server) Run() error {
-	defer s.pipeline.Close()
-
 	addr := fmt.Sprintf(":%d", s.port)
 	log.Printf("listening on %s", addr)
 	log.Printf("swagger docs at http://localhost%s/swagger/index.html", addr)
