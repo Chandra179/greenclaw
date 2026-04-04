@@ -1,84 +1,37 @@
 basePath: /
 definitions:
-  constant.HTTPContentType:
-    enum:
-    - html
-    - json
-    - xml
-    - binary
-    type: string
-    x-enum-varnames:
-    - HTTPContentHTML
-    - HTTPContentJSON
-    - HTTPContentXML
-    - HTTPContentBinary
-  internal.errorResponse:
+  service.BuildGraphReq:
     properties:
-      error:
+      youtubeURL:
         type: string
     type: object
-  internal.extractRequest:
+  service.BuildGraphResp:
     properties:
-      num_ctx:
-        example: 8192
+      category:
+        type: string
+      edges_added:
         type: integer
-      styles:
-        example:
-        - summary
-        - takeaways
-        items:
-          type: string
-        type: array
-      url:
-        example: https://www.youtube.com/watch?v=dQw4w9WgXcQ
+      entities_added:
+        type: integer
+      video_id:
         type: string
-    required:
-    - url
     type: object
-  internal.graphRequest:
+  service.ExtractYoutubeReq:
     properties:
-      url:
-        example: https://www.youtube.com/watch?v=dQw4w9WgXcQ
+      youtubeURL:
         type: string
-    required:
-    - url
     type: object
-  internal.httpResult:
+  service.ExtractYoutubeResp:
     properties:
-      channel_name:
-        type: string
-      content:
-        items:
-          type: string
-        type: array
-      content_type:
-        $ref: '#/definitions/constant.HTTPContentType'
-      description:
-        type: string
       duration:
         type: string
-      error:
+      language:
         type: string
-      fetched_at: {}
-      language_code:
-        type: string
-      links:
-        items:
-          type: string
-        type: array
-      model:
-        type: string
-      num_ctx:
-        type: integer
-      style:
-        type: string
-      styles:
-        items:
-          type: string
-        type: array
+      stored:
+        type: boolean
       title:
         type: string
-      url:
+      transcript:
         type: string
       video_id:
         type: string
@@ -90,61 +43,74 @@ info:
   title: Greenclaw API
   version: "1.0"
 paths:
-  /extract:
-    post:
-      consumes:
-      - application/json
-      description: Scrapes the given URL and returns structured content.
-      parameters:
-      - description: URL to extract
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/internal.extractRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/internal.httpResult'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/internal.errorResponse'
-      summary: Extract content from a URL
-      tags:
-      - extract
   /extract/graph:
     post:
       consumes:
       - application/json
-      description: Runs entity extraction and ArangoDB graph population for a result
-        that was previously processed by /extract or /extract/stream.
+      description: Given a YouTube URL (video already extracted), runs LLM entity/relationship
+        extraction and populates the graph.
       parameters:
-      - description: URL to index
+      - description: YouTube URL
         in: body
         name: body
         required: true
         schema:
-          $ref: '#/definitions/internal.graphRequest'
+          $ref: '#/definitions/service.BuildGraphReq'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal.httpResult'
+            $ref: '#/definitions/service.BuildGraphResp'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/internal.errorResponse'
-        "404":
-          description: Not Found
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
           schema:
-            $ref: '#/definitions/internal.errorResponse'
-      summary: Populate knowledge graph from a previously extracted URL
+            additionalProperties:
+              type: string
+            type: object
+      summary: Build knowledge graph
+      tags:
+      - extract
+  /extract/youtube:
+    post:
+      consumes:
+      - application/json
+      description: Given a YouTube URL, fetches (or transcribes) the transcript and
+        stores it in ArangoDB.
+      parameters:
+      - description: YouTube URL
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/service.ExtractYoutubeReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/service.ExtractYoutubeResp'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Extract YouTube transcript
       tags:
       - extract
 swagger: "2.0"
