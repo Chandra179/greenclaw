@@ -15,9 +15,9 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/extract": {
+        "/extract/graph": {
             "post": {
-                "description": "Scrapes the given URL and returns structured content.",
+                "description": "Given a YouTube URL (video already extracted), runs LLM entity/relationship extraction and populates the graph.",
                 "consumes": [
                     "application/json"
                 ],
@@ -27,15 +27,15 @@ const docTemplate = `{
                 "tags": [
                     "extract"
                 ],
-                "summary": "Extract content from a URL",
+                "summary": "Build knowledge graph",
                 "parameters": [
                     {
-                        "description": "URL to extract",
+                        "description": "YouTube URL",
                         "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal.extractRequest"
+                            "$ref": "#/definitions/service.BuildGraphReq"
                         }
                     }
                 ],
@@ -43,21 +43,33 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal.httpResult"
+                            "$ref": "#/definitions/service.BuildGraphResp"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/internal.errorResponse"
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     }
                 }
             }
         },
-        "/extract/graph": {
+        "/extract/youtube": {
             "post": {
-                "description": "Runs entity extraction and ArangoDB graph population for a result that was previously processed by /extract or /extract/stream.",
+                "description": "Given a YouTube URL, fetches (or transcribes) the transcript and stores it in ArangoDB.",
                 "consumes": [
                     "application/json"
                 ],
@@ -67,15 +79,15 @@ const docTemplate = `{
                 "tags": [
                     "extract"
                 ],
-                "summary": "Populate knowledge graph from a previously extracted URL",
+                "summary": "Extract YouTube transcript",
                 "parameters": [
                     {
-                        "description": "URL to index",
+                        "description": "YouTube URL",
                         "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal.graphRequest"
+                            "$ref": "#/definitions/service.ExtractYoutubeReq"
                         }
                     }
                 ],
@@ -83,19 +95,25 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal.httpResult"
+                            "$ref": "#/definitions/service.ExtractYoutubeResp"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/internal.errorResponse"
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     },
-                    "404": {
-                        "description": "Not Found",
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/internal.errorResponse"
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     }
                 }
@@ -103,120 +121,55 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "constant.HTTPContentType": {
-            "type": "string",
-            "enum": [
-                "html",
-                "json",
-                "xml",
-                "binary"
-            ],
-            "x-enum-varnames": [
-                "HTTPContentHTML",
-                "HTTPContentJSON",
-                "HTTPContentXML",
-                "HTTPContentBinary"
-            ]
-        },
-        "internal.errorResponse": {
+        "service.BuildGraphReq": {
             "type": "object",
             "properties": {
-                "error": {
+                "youtubeURL": {
                     "type": "string"
                 }
             }
         },
-        "internal.extractRequest": {
+        "service.BuildGraphResp": {
             "type": "object",
-            "required": [
-                "url"
-            ],
             "properties": {
-                "num_ctx": {
-                    "type": "integer",
-                    "example": 8192
+                "category": {
+                    "type": "string"
                 },
-                "styles": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "example": [
-                        "summary",
-                        "takeaways"
-                    ]
+                "edges_added": {
+                    "type": "integer"
                 },
-                "url": {
-                    "type": "string",
-                    "example": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+                "entities_added": {
+                    "type": "integer"
+                },
+                "video_id": {
+                    "type": "string"
                 }
             }
         },
-        "internal.graphRequest": {
+        "service.ExtractYoutubeReq": {
             "type": "object",
-            "required": [
-                "url"
-            ],
             "properties": {
-                "url": {
-                    "type": "string",
-                    "example": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+                "youtubeURL": {
+                    "type": "string"
                 }
             }
         },
-        "internal.httpResult": {
+        "service.ExtractYoutubeResp": {
             "type": "object",
             "properties": {
-                "channel_name": {
-                    "type": "string"
-                },
-                "content": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "content_type": {
-                    "$ref": "#/definitions/constant.HTTPContentType"
-                },
-                "description": {
-                    "type": "string"
-                },
                 "duration": {
                     "type": "string"
                 },
-                "error": {
+                "language": {
                     "type": "string"
                 },
-                "fetched_at": {},
-                "language_code": {
-                    "type": "string"
-                },
-                "links": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "model": {
-                    "type": "string"
-                },
-                "num_ctx": {
-                    "type": "integer"
-                },
-                "style": {
-                    "type": "string"
-                },
-                "styles": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
+                "stored": {
+                    "type": "boolean"
                 },
                 "title": {
                     "type": "string"
                 },
-                "url": {
+                "transcript": {
                     "type": "string"
                 },
                 "video_id": {
