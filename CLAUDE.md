@@ -35,7 +35,7 @@ POST /extract/youtube
 - **`pkg/transcribe`** — HTTP client for the whisper-service FastAPI endpoint; returns `{text, language, duration}`.
 - **`pkg/llm`** — HTTP client for Ollama (or compatible); chunks text via `pkg/chunker` before sending.
 - **`pkg/chunker`** — `RecursiveChunker` splits at semantic boundaries (`\n\n → \n → . → word`); configurable ChunkSize + Overlap.
-- **`pkg/graphdb`** — ArangoDB driver v2 wrapper; collections: `videos`, `entities`, `mentions` (edge), `related_to` (edge), `results`. Supports 768-dim vector embeddings (requires ArangoDB 3.12+).
+- **`pkg/graphdb`** — ArangoDB driver v2 wrapper; collections: `videos`, `entities`, `related_to` (edge), `results`. Supports 768-dim vector embeddings (requires ArangoDB 3.12+).
 - **`pkg/httpclient`** — `http.Client` factory that injects a browser-like User-Agent.
 - **`internal/config`** — YAML config with defaults; auto-creates `config.yaml` on first run.
 - **`internal/router`** — Gin routes: `POST /extract/youtube`, `POST /extract/graph`, `GET /swagger/*`.

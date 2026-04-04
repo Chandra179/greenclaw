@@ -44,7 +44,7 @@ func NewServer(cfg config.Config) *Server {
 	if cfg.Graph.Enabled {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		g, err := graphdb.NewArangoGraph(ctx, cfg.Graph)
+		g, err := graphdb.NewNeo4jGraph(ctx, cfg.Graph)
 		if err != nil {
 			log.Printf("[server] warn: graph DB unavailable: %v", err)
 		} else {

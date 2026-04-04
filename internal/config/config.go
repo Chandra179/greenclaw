@@ -67,11 +67,11 @@ type LLMConfig struct {
 	CacheDir         string   `yaml:"cache_dir"`         // directory for file-based result cache; "" disables caching
 }
 
-// GraphConfig holds settings for ArangoDB knowledge graph storage.
+// GraphConfig holds settings for Neo4j knowledge graph storage.
 type GraphConfig struct {
 	Enabled  bool   `yaml:"enabled"`
-	Endpoint string `yaml:"endpoint"`
-	Database string `yaml:"database"`
+	URI      string `yaml:"uri"`      // bolt://localhost:7687
+	Database string `yaml:"database"` // default: neo4j
 	Username string `yaml:"username"`
 	Password string `yaml:"password"`
 }
@@ -106,9 +106,9 @@ func Default() Config {
 		},
 		Graph: GraphConfig{
 			Enabled:  false,
-			Endpoint: "http://localhost:8529",
-			Database: "greenclaw",
-			Username: "root",
+			URI:      "bolt://localhost:7687",
+			Database: "neo4j",
+			Username: "neo4j",
 			Password: "",
 		},
 	}

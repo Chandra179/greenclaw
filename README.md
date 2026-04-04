@@ -82,10 +82,8 @@ Two relationship types, stored as edges:
 
 | Edge collection | Meaning | Direction |
 |---|---|---|
-| `mentions` | video mentions entity | `videos/<id>` → `entities/<key>` |
 | `related_to` | entity is related to another entity | `entities/<key>` → `entities/<key>` |
 
-`mentions` edges are created for every entity found in the video.
 `related_to` edges are created when the LLM identifies co-occurrence or explicit semantic relationships between entities within the same category graph.
 
 #### 2d. Graph scope
@@ -137,7 +135,6 @@ entities (vertex)
   type        string   ← "concept" | "person" | "organization" | "event"
   category    string
 
-mentions (edge)   videos/* → entities/*
 related_to (edge) entities/* → entities/*
 ```
 

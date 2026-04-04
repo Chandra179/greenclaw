@@ -110,7 +110,7 @@ func (d *Dependencies) BuildGraph(ctx context.Context, req BuildGraphReq) (*Buil
 
 	// Load video from graph DB.
 	var vDoc videoDoc
-	if err := d.GraphDB.GetVertex(ctx, "videos", videoID, &vDoc); err != nil {
+	if err := d.GraphDB.GetNode(ctx, "Video", videoID, &vDoc); err != nil {
 		return nil, fmt.Errorf("video %s not found in graph DB (run /extract/youtube first): %w", videoID, err)
 	}
 	if vDoc.Transcript == "" {
@@ -125,7 +125,7 @@ func (d *Dependencies) BuildGraph(ctx context.Context, req BuildGraphReq) (*Buil
 			return nil, fmt.Errorf("classify video: %w", err)
 		}
 		// Persist category back.
-		if err := d.GraphDB.UpsertVertex(ctx, "videos", videoID, map[string]interface{}{
+		if err := d.GraphDB.UpsertNode(ctx, "Video", videoID, map[string]interface{}{
 			"category": category,
 		}); err != nil {
 			log.Printf("[graph] warn: failed to update category for %s: %v", videoID, err)
@@ -144,46 +144,34 @@ func (d *Dependencies) BuildGraph(ctx context.Context, req BuildGraphReq) (*Buil
 	// Deduplicate by slug.
 	entityDocs, slugMap := buildEntityDocs(allEntities, category)
 
-	// Write entity vertices.
-	if err := d.GraphDB.BulkUpsertVertices(ctx, "entities", entityDocs); err != nil {
+	// Write entity nodes.
+	if err := d.GraphDB.BulkUpsertNodes(ctx, "Entity", entityDocs); err != nil {
 		return nil, fmt.Errorf("upsert entities: %w", err)
 	}
 
-	// Write mentions edges: videos/<id> → entities/<slug>
-	mentionEdges := make([][2]string, 0, len(slugMap))
-	for slug := range slugMap {
-		mentionEdges = append(mentionEdges, [2]string{
-			"videos/" + videoID,
-			"entities/" + slug,
-		})
-	}
-	if err := d.GraphDB.BulkUpsertEdges(ctx, "mentions", mentionEdges); err != nil {
-		return nil, fmt.Errorf("upsert mentions: %w", err)
-	}
-
-	// Write related_to edges: entities/<slug> → entities/<slug>
-	typedEdges := buildRelatedEdges(allRelationships, slugMap)
-	if len(typedEdges) > 0 {
-		if err := d.GraphDB.BulkUpsertTypedEdges(ctx, "related_to", typedEdges); err != nil {
+	// Write RELATED_TO relationships: Entity → Entity
+	rels := buildRelatedEdges(allRelationships, slugMap)
+	if len(rels) > 0 {
+		if err := d.GraphDB.BulkUpsertRelationships(ctx, rels); err != nil {
 			return nil, fmt.Errorf("upsert related_to edges: %w", err)
 		}
 	}
 
 	// Mark video as processed.
-	if err := d.GraphDB.UpsertVertex(ctx, "videos", videoID, map[string]interface{}{
+	if err := d.GraphDB.UpsertNode(ctx, "Video", videoID, map[string]interface{}{
 		"processed": true,
 	}); err != nil {
 		log.Printf("[graph] warn: failed to mark %s as processed: %v", videoID, err)
 	}
 
-	log.Printf("[graph] done for %s: %d entities, %d mentions, %d related_to",
-		videoID, len(entityDocs), len(mentionEdges), len(typedEdges))
+	log.Printf("[graph] done for %s: %d entities, %d related_to",
+		videoID, len(entityDocs), len(rels))
 
 	return &BuildGraphResp{
 		VideoID:       videoID,
 		Category:      category,
 		EntitiesAdded: len(entityDocs),
-		EdgesAdded:    len(mentionEdges) + len(typedEdges),
+		EdgesAdded:    len(rels),
 	}, nil
 }
 
@@ -318,7 +306,7 @@ func buildEntityDocs(entities []entityItem, category string) ([]map[string]inter
 		}
 		slugMap[slug] = e.Name
 		docs = append(docs, map[string]interface{}{
-			"_key":     slug,
+			"key":      slug,
 			"name":     e.Name,
 			"type":     e.Type,
 			"category": category,
@@ -327,10 +315,10 @@ func buildEntityDocs(entities []entityItem, category string) ([]map[string]inter
 	return docs, slugMap
 }
 
-// buildRelatedEdges converts relationship items to TypedEdge list, only for
+// buildRelatedEdges converts relationship items to Relationship list, only for
 // entities whose slugs exist in the known slug map.
-func buildRelatedEdges(rels []relationshipItem, slugMap map[string]string) []graphdb.TypedEdge {
-	edges := make([]graphdb.TypedEdge, 0, len(rels))
+func buildRelatedEdges(rels []relationshipItem, slugMap map[string]string) []graphdb.Relationship {
+	edges := make([]graphdb.Relationship, 0, len(rels))
 	for _, r := range rels {
 		fromSlug := toSlug(r.From)
 		toSlug_ := toSlug(r.To)
@@ -340,10 +328,12 @@ func buildRelatedEdges(rels []relationshipItem, slugMap map[string]string) []gra
 		if _, ok := slugMap[toSlug_]; !ok {
 			continue
 		}
-		edges = append(edges, graphdb.TypedEdge{
-			From: "entities/" + fromSlug,
-			To:   "entities/" + toSlug_,
-			Type: r.Type,
+		edges = append(edges, graphdb.Relationship{
+			FromLabel: "Entity",
+			FromKey:   fromSlug,
+			Type:      r.Type,
+			ToLabel:   "Entity",
+			ToKey:     toSlug_,
 		})
 	}
 	return edges

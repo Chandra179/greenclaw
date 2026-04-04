@@ -24,3 +24,6 @@ r:
 	
 g:
 	nvidia-smi -l 1
+
+d:
+	docker compose down -v

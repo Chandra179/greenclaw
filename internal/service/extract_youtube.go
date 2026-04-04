@@ -109,7 +109,7 @@ func (d *Dependencies) ExtractYoutube(ctx context.Context, req ExtractYoutubeReq
 			"processed":  false,
 			"category":   "",
 		}
-		if err := d.GraphDB.UpsertVertex(ctx, "videos", videoID, doc); err != nil {
+		if err := d.GraphDB.UpsertNode(ctx, "Video", videoID, doc); err != nil {
 			log.Printf("[extract] warn: failed to store video %s in graph DB: %v", videoID, err)
 		} else {
 			resp.Stored = true

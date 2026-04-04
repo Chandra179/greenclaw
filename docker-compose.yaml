@@ -1,21 +1,25 @@
 services:
-  arangodb:
-    image: arangodb:3.12
+  neo4j:
+    image: neo4j:5
     environment:
-      # ARANGO_ROOT_PASSWORD: "root"
-      ARANGO_NO_AUTH: "1"
+      NEO4J_AUTH: neo4j/greenclaw
     ports:
-      - "8529:8529"
+      - "7474:7474"
+      - "7687:7687"
     volumes:
-      - arangodb_data:/var/lib/arangodb3
+      - neo4j_data:/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8529/_api/version"]
-      interval: 5s
+      test: ["CMD", "neo4j", "status"]
+      interval: 10s
       timeout: 5s
       retries: 10
+      start_period: 30s
 
   greenclaw:
     build: .
+    depends_on:
+      neo4j:
+        condition: service_healthy
     ports:
       - "8080:8080"
     volumes:
@@ -27,4 +31,4 @@ services:
       - "host.docker.internal:host-gateway"
 
 volumes:
-  arangodb_data:
+  neo4j_data:

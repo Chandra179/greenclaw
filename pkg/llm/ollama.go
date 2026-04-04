@@ -91,10 +91,10 @@ func (o *OllamaClient) Chat(ctx context.Context, req ChatRequest) (*ChatResponse
 		return nil, fmt.Errorf("ollama returned %d: %s", resp.StatusCode, b)
 	}
 
-	var chatResp ChatResponse
-	if err := json.NewDecoder(resp.Body).Decode(&chatResp); err != nil {
+	var ollamaResp ollamaResponse
+	if err := json.NewDecoder(resp.Body).Decode(&ollamaResp); err != nil {
 		return nil, fmt.Errorf("decode ollama response: %w", err)
 	}
 
-	return &chatResp, nil
+	return &ChatResponse{JsonResponse: json.RawMessage(ollamaResp.Response)}, nil
 }
