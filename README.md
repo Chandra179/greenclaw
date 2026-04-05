@@ -152,3 +152,16 @@ related_to (edge) entities/* → entities/*
 | `internal/service/build_graph.go` | **Stub — needs implementation** |
 | LLM prompts (classify + extract) | **Not yet written** |
 | Tests | **None yet** |
+
+
+https://www.youtube.com/watch?v=01V3IEn2MsY
+https://www.youtube.com/watch?v=05kNCpqs_ZI
+https://www.youtube.com/watch?v=vFb_hb_npV4
+https://www.youtube.com/watch?v=-loW7xS73BM
+https://www.youtube.com/watch?v=bufMa2Oscok
+https://www.youtube.com/watch?v=dASaGYbN0dw
+https://www.youtube.com/watch?v=j6v2uziF9Z4
+
+https://www.youtube.com/watch?v=jIJC0RPpJuA
+https://www.youtube.com/watch?v=4jBheSk3dEo
+https://www.youtube.com/watch?v=3LqSJPjb1Qc

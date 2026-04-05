@@ -35,4 +35,5 @@ type Relationship struct {
 	Type      string
 	ToLabel   string
 	ToKey     string
+	Weight    int // occurrence count; written as a property on the edge
 }
