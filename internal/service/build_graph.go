@@ -10,7 +10,7 @@ import (
 )
 
 type BuildGraphReq struct {
-	YoutubeURL string
+	YoutubeURLs []string `json:"youtube_urls"`
 }
 
 type BuildGraphResp struct {
@@ -18,6 +18,7 @@ type BuildGraphResp struct {
 	Category      string `json:"category"`
 	EntitiesAdded int    `json:"entities_added"`
 	EdgesAdded    int    `json:"edges_added"`
+	Error         string `json:"error,omitempty"`
 }
 
 // videoDoc is the shape stored in the Video node.
@@ -31,7 +32,7 @@ type videoDoc struct {
 	Processed  bool   `json:"processed"`
 }
 
-func (d *Dependencies) BuildGraph(ctx context.Context, req BuildGraphReq) (*BuildGraphResp, error) {
+func (d *Dependencies) BuildGraph(ctx context.Context, req BuildGraphReq) ([]BuildGraphResp, error) {
 	if d.GraphDB == nil {
 		return nil, fmt.Errorf("graph DB not configured")
 	}
@@ -39,7 +40,20 @@ func (d *Dependencies) BuildGraph(ctx context.Context, req BuildGraphReq) (*Buil
 		return nil, fmt.Errorf("LLM client not configured")
 	}
 
-	videoID, err := extractVideoID(req.YoutubeURL)
+	var results []BuildGraphResp
+	for _, u := range req.YoutubeURLs {
+		resp, err := d.buildGraphOne(ctx, u)
+		if err != nil {
+			results = append(results, BuildGraphResp{Error: fmt.Sprintf("%s: %v", u, err)})
+			continue
+		}
+		results = append(results, *resp)
+	}
+	return results, nil
+}
+
+func (d *Dependencies) buildGraphOne(ctx context.Context, youtubeURL string) (*BuildGraphResp, error) {
+	videoID, err := extractVideoID(youtubeURL)
 	if err != nil {
 		return nil, fmt.Errorf("parse video ID: %w", err)
 	}

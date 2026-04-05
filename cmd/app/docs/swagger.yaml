@@ -2,8 +2,10 @@ basePath: /
 definitions:
   service.BuildGraphReq:
     properties:
-      youtubeURL:
-        type: string
+      youtube_urls:
+        items:
+          type: string
+        type: array
     type: object
   service.BuildGraphResp:
     properties:
@@ -13,17 +15,23 @@ definitions:
         type: integer
       entities_added:
         type: integer
+      error:
+        type: string
       video_id:
         type: string
     type: object
   service.ExtractYoutubeReq:
     properties:
-      youtubeURL:
-        type: string
+      youtube_urls:
+        items:
+          type: string
+        type: array
     type: object
   service.ExtractYoutubeResp:
     properties:
       duration:
+        type: string
+      error:
         type: string
       language:
         type: string
@@ -50,7 +58,7 @@ paths:
       description: Given a YouTube URL (video already extracted), runs LLM entity/relationship
         extraction and populates the graph.
       parameters:
-      - description: YouTube URL
+      - description: YouTube URLs
         in: body
         name: body
         required: true
@@ -62,7 +70,9 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/service.BuildGraphResp'
+            items:
+              $ref: '#/definitions/service.BuildGraphResp'
+            type: array
         "400":
           description: Bad Request
           schema:
@@ -85,7 +95,7 @@ paths:
       description: Given a YouTube URL, fetches (or transcribes) the transcript and
         stores it in ArangoDB.
       parameters:
-      - description: YouTube URL
+      - description: YouTube URLs
         in: body
         name: body
         required: true
@@ -97,7 +107,9 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/service.ExtractYoutubeResp'
+            items:
+              $ref: '#/definitions/service.ExtractYoutubeResp'
+            type: array
         "400":
           description: Bad Request
           schema:

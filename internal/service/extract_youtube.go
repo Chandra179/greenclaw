@@ -5,13 +5,15 @@ import (
 	"fmt"
 	"log"
 	"net/url"
+	"os"
 	"strings"
+	"sync"
 
 	"greenclaw/pkg/youtube"
 )
 
 type ExtractYoutubeReq struct {
-	YoutubeURL string
+	YoutubeURLs []string `json:"youtube_urls"`
 }
 
 type ExtractYoutubeResp struct {
@@ -21,10 +23,36 @@ type ExtractYoutubeResp struct {
 	Language   string `json:"language"`
 	Duration   string `json:"duration"`
 	Stored     bool   `json:"stored"`
+	Error      string `json:"error,omitempty"`
 }
 
-func (d *Dependencies) ExtractYoutube(ctx context.Context, req ExtractYoutubeReq) (*ExtractYoutubeResp, error) {
-	videoID, err := extractVideoID(req.YoutubeURL)
+func (d *Dependencies) ExtractYoutube(ctx context.Context, req ExtractYoutubeReq) ([]ExtractYoutubeResp, error) {
+	results := make([]ExtractYoutubeResp, len(req.YoutubeURLs))
+	const maxConcurrent = 1
+	sem := make(chan struct{}, maxConcurrent)
+
+	var wg sync.WaitGroup
+	for i, u := range req.YoutubeURLs {
+		wg.Add(1)
+		go func(i int, u string) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			resp, err := d.extractOne(ctx, u)
+			if err != nil {
+				results[i] = ExtractYoutubeResp{Error: fmt.Sprintf("%s: %v", u, err)}
+				return
+			}
+			results[i] = *resp
+		}(i, u)
+	}
+	wg.Wait()
+	return results, nil
+}
+
+func (d *Dependencies) extractOne(ctx context.Context, youtubeURL string) (*ExtractYoutubeResp, error) {
+	videoID, err := extractVideoID(youtubeURL)
 	if err != nil {
 		return nil, fmt.Errorf("parse video ID: %w", err)
 	}
@@ -75,6 +103,7 @@ func (d *Dependencies) ExtractYoutube(ctx context.Context, req ExtractYoutubeReq
 		}
 
 		result, err := d.TranscribeClient.Transcribe(ctx, audioPath)
+		os.Remove(audioPath) // clean up audio file regardless of transcription result
 		if err != nil {
 			return nil, fmt.Errorf("transcribe audio: %w", err)
 		}
@@ -102,7 +131,7 @@ func (d *Dependencies) ExtractYoutube(ctx context.Context, req ExtractYoutubeReq
 	if d.GraphDB != nil {
 		doc := map[string]interface{}{
 			"title":      meta.Title,
-			"url":        req.YoutubeURL,
+			"url":        youtubeURL,
 			"transcript": transcript,
 			"language":   language,
 			"duration":   duration,

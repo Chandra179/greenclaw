@@ -107,13 +107,10 @@ func (g *Neo4jGraph) BulkUpsertRelationships(ctx context.Context, rels []Relatio
 	defer session.Close(ctx)
 
 	for k, pairs := range groups {
-		cypher := fmt.Sprintf(`UNWIND $pairs AS p
-MATCH (a:%s {key: p.fromKey}), (b:%s {key: p.toKey})
-MERGE (a)-[r:%s]->(b)
-ON CREATE SET r.weight = p.weight
-ON MATCH SET r.weight = coalesce(r.weight, 0) + p.weight`, k.fromLabel, k.toLabel, k.relType)
+		cypher := fmt.Sprintf("UNWIND $pairs AS p\nMATCH (a:%s {key: p.fromKey}), (b:%s {key: p.toKey})\nMERGE (a)-[r:`%s`]->(b)\nON CREATE SET r.weight = p.weight\nON MATCH SET r.weight = coalesce(r.weight, 0) + p.weight", k.fromLabel, k.toLabel, k.relType)
 		if _, err := session.Run(ctx, cypher, map[string]interface{}{"pairs": pairs}); err != nil {
-			return fmt.Errorf("upsert (%s)-[%s]->(%s): %w", k.fromLabel, k.relType, k.toLabel, err)
+			log.Printf("[graphdb] warn: upsert (%s)-[%s]->(%s): %v", k.fromLabel, k.relType, k.toLabel, err)
+			continue
 		}
 	}
 	return nil

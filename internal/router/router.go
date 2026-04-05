@@ -44,8 +44,8 @@ func Router(deps Dependencies) *gin.Engine {
 // @Tags        extract
 // @Accept      json
 // @Produce     json
-// @Param       body body service.ExtractYoutubeReq true "YouTube URL"
-// @Success     200 {object} service.ExtractYoutubeResp
+// @Param       body body service.ExtractYoutubeReq true "YouTube URLs"
+// @Success     200 {array} service.ExtractYoutubeResp
 // @Failure     400 {object} map[string]string
 // @Failure     500 {object} map[string]string
 // @Router      /extract/youtube [post]
@@ -55,8 +55,8 @@ func (h *Handler) handleExtractYoutube(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	if req.YoutubeURL == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "youtube_url is required"})
+	if len(req.YoutubeURLs) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "youtube_urls is required"})
 		return
 	}
 
@@ -75,8 +75,8 @@ func (h *Handler) handleExtractYoutube(c *gin.Context) {
 // @Tags        extract
 // @Accept      json
 // @Produce     json
-// @Param       body body service.BuildGraphReq true "YouTube URL"
-// @Success     200 {object} service.BuildGraphResp
+// @Param       body body service.BuildGraphReq true "YouTube URLs"
+// @Success     200 {array} service.BuildGraphResp
 // @Failure     400 {object} map[string]string
 // @Failure     500 {object} map[string]string
 // @Router      /extract/graph [post]
@@ -86,8 +86,8 @@ func (h *Handler) handleExtractGraph(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	if req.YoutubeURL == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "youtube_url is required"})
+	if len(req.YoutubeURLs) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "youtube_urls is required"})
 		return
 	}
 

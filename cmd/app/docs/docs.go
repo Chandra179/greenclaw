@@ -30,7 +30,7 @@ const docTemplate = `{
                 "summary": "Build knowledge graph",
                 "parameters": [
                     {
-                        "description": "YouTube URL",
+                        "description": "YouTube URLs",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -43,7 +43,10 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/service.BuildGraphResp"
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.BuildGraphResp"
+                            }
                         }
                     },
                     "400": {
@@ -82,7 +85,7 @@ const docTemplate = `{
                 "summary": "Extract YouTube transcript",
                 "parameters": [
                     {
-                        "description": "YouTube URL",
+                        "description": "YouTube URLs",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -95,7 +98,10 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/service.ExtractYoutubeResp"
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/service.ExtractYoutubeResp"
+                            }
                         }
                     },
                     "400": {
@@ -124,8 +130,11 @@ const docTemplate = `{
         "service.BuildGraphReq": {
             "type": "object",
             "properties": {
-                "youtubeURL": {
-                    "type": "string"
+                "youtube_urls": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -141,6 +150,9 @@ const docTemplate = `{
                 "entities_added": {
                     "type": "integer"
                 },
+                "error": {
+                    "type": "string"
+                },
                 "video_id": {
                     "type": "string"
                 }
@@ -149,8 +161,11 @@ const docTemplate = `{
         "service.ExtractYoutubeReq": {
             "type": "object",
             "properties": {
-                "youtubeURL": {
-                    "type": "string"
+                "youtube_urls": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -158,6 +173,9 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "duration": {
+                    "type": "string"
+                },
+                "error": {
                     "type": "string"
                 },
                 "language": {
