@@ -20,7 +20,7 @@ type Neo4jGraph struct {
 // NewNeo4jGraph connects to Neo4j and ensures constraints exist.
 // Safe to call on every startup.
 func NewNeo4jGraph(ctx context.Context, cfg config.GraphConfig) (*Neo4jGraph, error) {
-	driver, err := neo4j.NewDriverWithContext(cfg.URI, neo4j.BasicAuth(cfg.Username, cfg.Password, ""))
+	driver, err := neo4j.NewDriverWithContext(cfg.URI, neo4j.NoAuth())
 	if err != nil {
 		return nil, fmt.Errorf("create neo4j driver: %w", err)
 	}

@@ -38,7 +38,7 @@ transcriber:
 
 graph:
   enabled: true
-  endpoint: http://arangodb:8529
-  database: greenclaw
+  endpoint: bolt://neo4j:7687
+  database: neo4j
   username: root
   password: ""

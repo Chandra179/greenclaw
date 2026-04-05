@@ -70,7 +70,7 @@ type LLMConfig struct {
 // GraphConfig holds settings for Neo4j knowledge graph storage.
 type GraphConfig struct {
 	Enabled  bool   `yaml:"enabled"`
-	URI      string `yaml:"uri"`      // bolt://localhost:7687
+	URI      string `yaml:"endpoint"` // bolt://localhost:7687
 	Database string `yaml:"database"` // default: neo4j
 	Username string `yaml:"username"`
 	Password string `yaml:"password"`
