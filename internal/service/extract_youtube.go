@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 
+	"greenclaw/pkg/storage"
 	"greenclaw/pkg/youtube"
 )
 
@@ -127,22 +128,20 @@ func (d *Dependencies) extractOne(ctx context.Context, youtubeURL string) (*Extr
 		Duration:   duration,
 	}
 
-	// Persist to graph DB.
-	if d.GraphDB != nil {
-		doc := map[string]interface{}{
-			"title":      meta.Title,
-			"url":        youtubeURL,
-			"transcript": transcript,
-			"language":   language,
-			"duration":   duration,
-			"processed":  false,
-			"category":   "",
-		}
-		if err := d.GraphDB.UpsertNode(ctx, "Video", videoID, doc); err != nil {
-			log.Printf("[extract] warn: failed to store video %s in graph DB: %v", videoID, err)
+	// Persist to SQLite.
+	if d.Storage != nil {
+		if err := d.Storage.StoreVideo(ctx, storage.VideoRecord{
+			VideoID:    videoID,
+			URL:        youtubeURL,
+			Title:      meta.Title,
+			Transcript: transcript,
+			Language:   language,
+			Duration:   duration,
+		}); err != nil {
+			log.Printf("[extract] warn: failed to store video %s: %v", videoID, err)
 		} else {
 			resp.Stored = true
-			log.Printf("[extract] stored video %s in graph DB", videoID)
+			log.Printf("[extract] stored video %s in SQLite", videoID)
 		}
 	}
 

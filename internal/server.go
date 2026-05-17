@@ -1,7 +1,6 @@
 package internal
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -12,8 +11,7 @@ import (
 	"greenclaw/internal/config"
 	"greenclaw/internal/router"
 	"greenclaw/internal/service"
-	"greenclaw/pkg/graphdb"
-	"greenclaw/pkg/llm"
+	"greenclaw/pkg/storage"
 	"greenclaw/pkg/transcribe"
 	"greenclaw/pkg/youtube"
 )
@@ -40,15 +38,13 @@ func NewServer(cfg config.Config) *Server {
 		Cfg:      cfg,
 	}
 
-	// Wire up optional graph DB.
-	if cfg.Graph.Enabled {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		g, err := graphdb.NewNeo4jGraph(ctx, cfg.Graph)
+	// Wire up SQLite storage.
+	if cfg.Storage.DSN != "" {
+		s, err := storage.NewClient(cfg.Storage.DSN)
 		if err != nil {
-			log.Printf("[server] warn: graph DB unavailable: %v", err)
+			log.Printf("[server] warn: storage unavailable: %v", err)
 		} else {
-			orchDeps.GraphDB = g
+			orchDeps.Storage = s
 		}
 	}
 
@@ -62,21 +58,6 @@ func NewServer(cfg config.Config) *Server {
 			cfg.Transcriber.Endpoint,
 			timeout,
 			cfg.Transcriber.Language,
-		)
-	}
-
-	// Wire up LLM client.
-	if cfg.LLM.Endpoint != "" {
-		timeout, err := time.ParseDuration(cfg.LLM.Timeout)
-		if err != nil {
-			timeout = 20 * time.Minute
-		}
-		orchDeps.LLMClient = llm.NewOllamaClient(
-			cfg.LLM.Endpoint,
-			cfg.LLM.Model,
-			timeout,
-			cfg.LLM.NumCtx,
-			cfg.LLM.OverlapTokens,
 		)
 	}
 

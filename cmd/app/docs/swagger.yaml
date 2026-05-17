@@ -1,25 +1,5 @@
 basePath: /
 definitions:
-  service.BuildGraphReq:
-    properties:
-      youtube_urls:
-        items:
-          type: string
-        type: array
-    type: object
-  service.BuildGraphResp:
-    properties:
-      category:
-        type: string
-      edges_added:
-        type: integer
-      entities_added:
-        type: integer
-      error:
-        type: string
-      video_id:
-        type: string
-    type: object
   service.ExtractYoutubeReq:
     properties:
       youtube_urls:
@@ -51,49 +31,12 @@ info:
   title: Greenclaw API
   version: "1.0"
 paths:
-  /extract/graph:
-    post:
-      consumes:
-      - application/json
-      description: Given a YouTube URL (video already extracted), runs LLM entity/relationship
-        extraction and populates the graph.
-      parameters:
-      - description: YouTube URLs
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/service.BuildGraphReq'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/service.BuildGraphResp'
-            type: array
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: Build knowledge graph
-      tags:
-      - extract
   /extract/youtube:
     post:
       consumes:
       - application/json
       description: Given a YouTube URL, fetches (or transcribes) the transcript and
-        stores it in ArangoDB.
+        stores it in SQLite.
       parameters:
       - description: YouTube URLs
         in: body

@@ -15,64 +15,9 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/extract/graph": {
-            "post": {
-                "description": "Given a YouTube URL (video already extracted), runs LLM entity/relationship extraction and populates the graph.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "extract"
-                ],
-                "summary": "Build knowledge graph",
-                "parameters": [
-                    {
-                        "description": "YouTube URLs",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/service.BuildGraphReq"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/service.BuildGraphResp"
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            }
-        },
         "/extract/youtube": {
             "post": {
-                "description": "Given a YouTube URL, fetches (or transcribes) the transcript and stores it in ArangoDB.",
+                "description": "Given a YouTube URL, fetches (or transcribes) the transcript and stores it in SQLite.",
                 "consumes": [
                     "application/json"
                 ],
@@ -127,37 +72,6 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "service.BuildGraphReq": {
-            "type": "object",
-            "properties": {
-                "youtube_urls": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                }
-            }
-        },
-        "service.BuildGraphResp": {
-            "type": "object",
-            "properties": {
-                "category": {
-                    "type": "string"
-                },
-                "edges_added": {
-                    "type": "integer"
-                },
-                "entities_added": {
-                    "type": "integer"
-                },
-                "error": {
-                    "type": "string"
-                },
-                "video_id": {
-                    "type": "string"
-                }
-            }
-        },
         "service.ExtractYoutubeReq": {
             "type": "object",
             "properties": {

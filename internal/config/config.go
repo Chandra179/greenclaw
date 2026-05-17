@@ -16,8 +16,7 @@ type Config struct {
 	RecycleAfter       int               `yaml:"recycle_after"`
 	YouTube            YouTubeConfig     `yaml:"youtube"`
 	Transcriber        TranscriberConfig `yaml:"transcriber"`
-	LLM                LLMConfig         `yaml:"llm"`
-	Graph              GraphConfig       `yaml:"graph"`
+	Storage            StorageConfig     `yaml:"storage"`
 }
 
 // YouTubeConfig holds YouTube-specific extraction settings.
@@ -56,24 +55,9 @@ type TranscriberConfig struct {
 	Language string `yaml:"language"`
 }
 
-// LLMConfig holds settings for LLM-based transcript processing.
-type LLMConfig struct {
-	Endpoint         string   `yaml:"endpoint"`          // default: http://localhost:11434
-	Model            string   `yaml:"model"`             // default: llama3.2
-	Timeout          string   `yaml:"timeout"`           // default: 60s
-	ProcessingStyles []string `yaml:"processing_styles"` // e.g. ["summary", "takeaways"]
-	NumCtx           int      `yaml:"num_ctx"`           // context window size (default: 8192)
-	OverlapTokens    int      `yaml:"overlap_tokens"`    // tokens carried across chunk boundaries (default: 200)
-	CacheDir         string   `yaml:"cache_dir"`         // directory for file-based result cache; "" disables caching
-}
-
-// GraphConfig holds settings for Neo4j knowledge graph storage.
-type GraphConfig struct {
-	Enabled  bool   `yaml:"enabled"`
-	URI      string `yaml:"endpoint"` // bolt://localhost:7687
-	Database string `yaml:"database"` // default: neo4j
-	Username string `yaml:"username"`
-	Password string `yaml:"password"`
+// StorageConfig holds settings for the SQLite document store.
+type StorageConfig struct {
+	DSN string `yaml:"dsn"` // e.g. "file:data.db?cache=shared"
 }
 
 func Default() Config {
@@ -97,19 +81,8 @@ func Default() Config {
 			Timeout:  "5m",
 			Language: "",
 		},
-		LLM: LLMConfig{
-			Endpoint:      "http://localhost:11434",
-			Model:         "llama3.2",
-			Timeout:       "60s",
-			NumCtx:        8192,
-			OverlapTokens: 200,
-		},
-		Graph: GraphConfig{
-			Enabled:  false,
-			URI:      "bolt://localhost:7687",
-			Database: "neo4j",
-			Username: "neo4j",
-			Password: "",
+		Storage: StorageConfig{
+			DSN: "file:data.db?cache=shared",
 		},
 	}
 }
